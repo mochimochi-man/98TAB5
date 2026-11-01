@@ -1,0 +1,14 @@
+{
+  "date_jst": "2026-11-01",
+  "result": "PASS",
+  "file_names": "all recursive files including hidden files",
+  "text_scan": "Implementation and tests: case-insensitive full content; no removed-backend references",
+  "binary_scan": "backend names, format extension and entry points",
+  "matches": 0,
+  "source_build_hashes": "PASS",
+  "app_build_match": "PASS",
+  "hardware": "Public app flashed at 0x10000; UP/KP8 0->16 and DOWN/KP2 16->0 verified; old unsupported NVS mount ignored safely",
+  "test_release_media": "PASS: generic unsupported extensions and device path rejected",
+  "hardware_boot": "PASS: FreeDOS command prompt, V30, FD98.HDM in drive 1; drive 2 empty",
+  "scope_note": "Removal audit applies to implementation and tests. READMEs now intentionally describe the discontinued mode at the author's request."
+}

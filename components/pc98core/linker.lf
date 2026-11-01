@@ -1,0 +1,29 @@
+# pc98core's static .bss/.common go to external RAM (PSRAM) so internal SRAM stays free for I2S DMA etc.
+[scheme:pc98core_extram]
+entries:
+    bss -> extern_ram
+    common -> extern_ram
+
+# Stage 7c-1b: the new CPU's hot path (fast16 + adapter) runs from IRAM like the legacy core.
+[scheme:pc98core_iram]
+entries:
+    text -> iram0_text
+
+[mapping:pc98core]
+archive: libpc98core.a
+entries:
+    * (pc98core_extram)
+    fast16 (pc98core_iram)
+    # set up once, not run per instruction: from flash, so the internal RAM keeps clear of the bootloader
+    fast16:mini_init (default)
+    fast16:optab_init (default)
+    fast16:mini_models (default)
+    # REP string ops: one call runs the whole repeat, so the flash fetch is paid once per instruction
+    fast16:h_str_m286 (default)
+    cpuadapt:clocks_of (default)
+    cpuadapt:pc98_adapt_step (default)
+    cpuadapt:adopt (default)
+    cpuadapt:stop_machine (default)
+    cpuadapt:deliver_fault (default)
+    cpuadapt:current_bus (default)
+    cpuadapt (pc98core_iram)

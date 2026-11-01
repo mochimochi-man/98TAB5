@@ -1,0 +1,84 @@
+// microSD for the M5Stack Tab5, mounted at /sd.
+//
+// Everything here is the BSP's one-stop call, deliberately:
+//
+// bsp_sdcard_mount() passes an all-zero config to bsp_sdcard_sdmmc_mount(),
+// which is what makes the BSP fill in its own defaults — including bringing up
+// the on-chip LDO that powers the card. Filling the host and slot structs by
+// hand (via bsp_sdcard_get_sdmmc_host() / bsp_sdcard_sdmmc_get_slot()) skips
+// that: the card then gets no supply, and the log reads
+//     ldo: The voltage value 0 is out of the recommended range
+//     sdmmc_init_ocr: send_op_cond (1) returned 0x107
+// which looks like a missing card rather than a missing volt.
+//
+// The mount point has to be "/sd" because dosio_sd.cpp opens every image
+// through that prefix; it comes from CONFIG_BSP_SD_MOUNT_POINT in
+// sdkconfig.defaults rather than being passed in here.
+//
+// The one thing passed in is the mount config, for its file limit. The BSP's
+// own allows five open files, and a running machine holds most of them - the
+// hard disk image, the ROMs, and a file per floppy drive. Host, slot and the
+// LDO are still left to the BSP, which fills them in because they are left
+// empty.
+
+#include <string.h>
+
+#include "bsp/esp-bsp.h"
+#include "sdmmc_cmd.h"
+
+extern "C" int ets_printf(const char *fmt, ...);
+extern "C" void hf_term(void);
+extern "C" void fdd_media_flush_all(void);   // pc98core/media/drives.c: write back dirty track data
+
+// Give up the card cleanly. This matters before any reboot that is going to
+// re-initialise it: nothing here stops the emulator using the card first, so a
+// restart can land in the middle of a multi-block read, and a card left
+// mid-transaction does not answer the initialisation sequence afterwards. That
+// is what made USB Mode report "no SD card" on a machine whose card was fine,
+// and only on some attempts - it depended on what the card happened to be
+// doing at the moment of the reset.
+extern "C" void sd_unmount(void) {
+    // Stage 4-3: a D88 image keeps the track the floppy controller wrote to in memory until the
+    // controller moves to another track. Every route out of the emulator that hands the card away
+    // (USB Mode, the reboots of the menu) comes through here, so write those tracks back first.
+    fdd_media_flush_all();
+    hf_term();
+    bsp_sdcard_unmount();
+}
+
+static esp_err_t mount_card(void) {
+    static esp_vfs_fat_sdmmc_mount_config_t mount;
+    mount.format_if_mount_failed = false;
+    mount.max_files = 12;
+    mount.allocation_unit_size = 16 * 1024;
+    bsp_sdcard_cfg_t cfg = {};
+    cfg.mount = &mount;
+    return bsp_sdcard_sdmmc_mount(&cfg);
+}
+
+extern "C" bool sd_mount(void) {
+    // Two goes, for the same reason: if the card was left busy by a previous
+    // life it will not answer the first time, and by the second it has timed
+    // out whatever it was doing.
+    esp_err_t err = mount_card();
+    if (err != ESP_OK) {
+        ets_printf("sd: mount failed: 0x%x, retrying\n", (unsigned)err);
+        bsp_sdcard_unmount();
+        vTaskDelay(pdMS_TO_TICKS(150));
+        err = mount_card();
+    }
+    if (err != ESP_OK) {
+        ets_printf("sd: mount failed: 0x%x\n", (unsigned)err);
+        return false;
+    }
+    sdmmc_card_t *card = bsp_sdcard_get_handle();
+    if (card) {
+        const uint64_t mb = ((uint64_t)card->csd.capacity * card->csd.sector_size) / (1024ULL * 1024ULL);
+        ets_printf("sd: %s %u MB, %d-bit bus @ %d kHz\n", card->cid.name, (unsigned)mb, card->log_bus_width, card->max_freq_khz);
+    }
+    return true;
+}
+
+extern "C" sdmmc_card_t *sd_get_card(void) {
+    return bsp_sdcard_get_handle();
+}
