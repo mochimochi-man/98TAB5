@@ -692,7 +692,6 @@ extern "C" void lcd_menu_flush(void) {
     fb_sync_all();
     s_menu_dirty = false;
     s_force_full = true;
-    ets_printf("MENU flush %lld us\n", (long long)(esp_timer_get_time() - t0));
 }
 
 // One text row of the 80 x 25 grid. Columns from `split` on are drawn in fg2 (a label and its value in two tones);
@@ -767,29 +766,3 @@ extern "C" int lcd_pending(void) {
     return s_pend;
 }
 
-// dev diag: dump the PANEL buffer (what the menu draws into), decimated by `step`, as RGB332 rows.
-// view=1 first invalidates the cache lines (M2C), so the dump shows what the scanout DMA sees in PSRAM
-// (anything the menu forgot to write back is then lost - a test-only effect).
-extern "C" void lcd_panel_dump(int step, int view) {
-    if (!s_fb) { ets_printf("PAN 0 0\n"); return; }
-    if (step < 1) step = 1;
-    if (view) esp_cache_msync(s_fb, (size_t)PAN_W * PAN_H * sizeof(uint16_t),
-                              ESP_CACHE_MSYNC_FLAG_DIR_M2C | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
-    const int w = PAN_W / step, h = PAN_H / step;
-    ets_printf("PAN %d %d\n", w, h);
-    static const char hx[] = "0123456789abcdef";
-    static char line[4 + 720 * 2];
-    for (int y = 0; y < h; y++) {
-        const uint16_t *r = s_fb + (size_t)(y * step) * PAN_W;
-        int n = 0;
-        line[n++] = 'R'; line[n++] = ' ';
-        for (int x = 0; x < w; x++) {
-            const uint16_t p = r[x * step];
-            const uint8_t c = (uint8_t)(((p >> 13) << 5) | (((p >> 8) & 7) << 2) | ((p >> 3) & 3));
-            line[n++] = hx[c >> 4]; line[n++] = hx[c & 15];
-        }
-        line[n++] = '\n'; line[n] = 0;
-        ets_printf("%s", line);
-    }
-    ets_printf("PANEND\n");
-}

@@ -138,21 +138,8 @@ static inline bool key_repeats(uint8_t nk);
 static uint8_t s_held_nk = 0xff;     // the arrow being held, 0xff = none
 static int64_t s_held_next;          // when it next repeats
 
-extern "C" void remote_poll(void);               // main.cpp: dev serial console (k/H/S ... also inside the menu)
-extern volatile uint32_t g_kd_rep[2], g_kd_nz[2], g_kd_xferr, g_c0_ticks;
 static bool menu_key_pop(uint8_t *nk, uint8_t *dn) {
     lcd_menu_flush();
-    remote_poll();
-    {   // dev: show that USB reports / core 0 are alive while the menu is up
-        static uint32_t last_rep, last_c0; static int64_t last_t;
-        const int64_t now = esp_timer_get_time();
-        if (now - last_t > 1000000) {
-            last_t = now;
-            ets_printf("MENU alive usb rep=%u nz=%u xerr=%u c0ticks+%u (1s)\n", (unsigned)g_kd_rep[0], (unsigned)g_kd_nz[0],
-                       (unsigned)g_kd_xferr, (unsigned)(g_c0_ticks - last_c0));
-            last_c0 = g_c0_ticks; (void)last_rep;
-        }
-    }
     if (usb_kbd_pop(nk, dn)) {
         if (*dn && key_repeats(*nk)) {
             s_held_nk = *nk;
@@ -989,9 +976,8 @@ extern "C" void menu_disk_run(void) {
     for (;;) {
         uint8_t nk, dn;
         if (!menu_key_pop(&nk, &dn)) { vTaskDelay(pdMS_TO_TICKS(20)); continue; }
-        ets_printf("MENU key nk=%02x dn=%d sel=%d\n", nk, dn, sel);
         if (!dn) continue;
-        if (nk == NK_ESC) { ets_printf("MENU close\n"); break; }
+        if (nk == NK_ESC) break;
         if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 17;
         if (key_is_down(nk)) sel = (sel < 17) ? sel + 1 : 0;
         // Left/right adjust the rows that hold a value rather than doing
@@ -1097,7 +1083,6 @@ extern "C" void menu_disk_run(void) {
                 lcd_menu_clear();   // the submenu owned the screen
             }
         }
-        ets_printf("MENU st sel=%d bl=%d vol=%d mult=%d\n", sel, g_backlight_pct, audio_get_volume(), (int)g_settings.clock_mul);
         draw_drives(sel);
     }
     g_menu_active = 0;

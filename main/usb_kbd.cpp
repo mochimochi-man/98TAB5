@@ -86,10 +86,6 @@ static void kq_push(uint8_t nkey, uint8_t down) {
     xQueueSend(s_kq, &ev, 0);
 }
 
-// dev diag: a key event from the serial console (remote control).
-extern "C" void usb_kbd_inject(uint8_t nkey, uint8_t down) {
-    kq_push(nkey, down);
-}
 
 // Pop one key event for the emulator loop. Returns 1 if an event was returned.
 extern "C" int usb_kbd_pop(uint8_t *nkey, uint8_t *down) {
@@ -122,9 +118,6 @@ extern "C" void hid_kbd_report(int src, const uint8_t *d, int len) {
     if ((unsigned)src >= HID_SRC_MAX) return;
     if (len < 8) { g_kd_short++; return; }
     g_kd_rep[src]++;
-    if (g_menu_active) {
-        ets_printf("MENU hid src=%d mod=%02x keys %02x %02x %02x %02x %02x %02x\n", src, d[0], d[2], d[3], d[4], d[5], d[6], d[7]);
-    }
     for (int i = 0; i < 8; i++) if (d[i]) { g_kd_nz[src]++; if (src == 0) memcpy((void *)g_kd_last, d, 8); break; }
 #if HID_KBD_TRACE
     // The keyboard streams idle (all-zero) reports continuously, and a serial
@@ -403,28 +396,6 @@ extern "C" void hid_map_init(void) {
 
 extern "C" void tab5_usb_host_power(bool on);  // panel_tab5.cpp
 
-// dev diag: a core-0 task at the USB lib's own priority. g_c0_ticks counts its 10 ms wakeups (is core 0
-// alive while the menu is up?), and J <usage> makes it deliver a key press+release through hid_kbd_report
-// from core 0, the way the real keyboard's reports arrive.
-volatile uint32_t g_c0_ticks = 0;
-volatile int g_j_usage = 0;
-static void c0_probe_task(void *arg) {
-    (void)arg;
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-        g_c0_ticks++;
-        const int u = g_j_usage;
-        if (u) {
-            g_j_usage = 0;
-            uint8_t rep[8] = { 0, 0, (uint8_t)u, 0, 0, 0, 0, 0 };
-            hid_kbd_report(HID_SRC_USB, rep, 8);
-            vTaskDelay(pdMS_TO_TICKS(100));
-            rep[2] = 0;
-            hid_kbd_report(HID_SRC_USB, rep, 8);
-        }
-    }
-}
-
 // A device left powered through repeated MCU-only resets (flashing, a boot
 // loop) can stop signalling attach until its power is removed; replugging was
 // the only cure. If nothing has attached shortly after boot, cut the USB-A
@@ -447,7 +418,6 @@ static void usb_rearm_task(void *arg) {
 
 extern "C" void usb_kbd_init(void) {
     hid_map_init();
-    xTaskCreatePinnedToCore(c0_probe_task, "c0probe", 3072, NULL, 2, NULL, 0);
 
     // Power the USB-A port. On the Tab5 its 5V comes from an I/O expander pin
     // and the port is dead without it - which is invisible from the host stack:
