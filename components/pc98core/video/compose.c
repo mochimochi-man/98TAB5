@@ -285,14 +285,16 @@ void video_frame(void)
 		s_blink_phase = blink_phase;
 		if (textview_has_blink()) g_vreq.text |= VR_ALL;
 	}
+	/* Timing belongs to emulation even when rendering is postponed. Geometry
+	 * clears shared index planes, which a queued compositor may still read. */
+	if (g_vreq.layout) gdc_timing();
+	if (!g_mstat.drawframe) return;
 	if (g_vreq.layout) {
 		g_vreq.layout = 0;
-		gdc_timing();
 		geometry();
 		g_vreq.text = g_vreq.grph[0] = g_vreq.grph[1] = VR_ALL;
 		g_vreq.compose = 1;
 	}
-	if (!g_mstat.drawframe) return;
 	if (g_vreq.palette) {
 		g_vreq.palette = 0;
 		compose_palette();

@@ -131,6 +131,8 @@ static void reset_memory(void)
     unsigned n;
     memset(mem, 0, 0xc0000);			/* main RAM and VRAM bank 0 */
     memset(mem + 0xc0000, 0xff, 0xe8000 - 0xc0000);	/* the expansion area reads as nothing fitted */
+    /* E0000h-E7FFFh is graphics plane E, not an empty expansion slot. */
+    memset(mem + GVRAM_E, 0, 0x8000);
     memset(mem + 0xe8000, 0, 0x110000 - 0xe8000);	/* the ROM area (rom.c fills it) and the HMA */
     memset(mem + GVRAM1_B, 0, 0x18000);		/* graphics VRAM bank 1 */
     memset(mem + GVRAM1_E, 0, 0x8000);

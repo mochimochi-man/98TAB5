@@ -136,6 +136,18 @@ Tab5 BSP 経由で入ります。同梱の VGLite カーネルドライバ（Viv
 同フォントの Debian パッケージング部分は GPL-2+ ですが、それはパッケージング
 スクリプトのみに掛かるものです。本プロジェクトでは一切使用も配布もしていません。
 
+### 4.6 VSCO 2 Community Edition — CC0-1.0
+
+サウンドエフェクト Orchestra が鳴らす楽器録音
+`components/pc98core/sound/samples/orchestra_bank.bin` は、VSCO 2 Community
+Edition の一部の録音を加工したものです。
+
+- 録音: Sam Gossner / Simon Dalzell、元のサンプル編集: Elan Hickler / Soundemote
+- 上流: <https://github.com/sgossner/VSCO-2-CE>
+- ライセンス: **CC0-1.0**（パブリックドメイン提供）。改変・再配布・商用利用に
+  許諾も表示も不要です。本文は `components/pc98core/sound/samples/LICENSE`、
+  固定リビジョン・各ファイルの SHA-256・加工内容は同じ場所の `SOURCES.json` にあります。
+
 ## 5. コピーレフト
 
 コピーレフトのコードは、**ファームウェアにも、このアーカイブにも一切ありません。**

@@ -1,0 +1,969 @@
+{
+  "library": "VSCO 2 Community Edition",
+  "license": "CC0-1.0",
+  "upstream": "https://github.com/sgossner/VSCO-2-CE",
+  "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+  "bank_sha256": "8022eb6bf9810434aa21f8c9dea2cb4c1a20ff84f32277d917aa4e247d91cf1e",
+  "bytes": 4136298,
+  "format": "signed little-endian mono PCM16 at 22050 Hz; one level per zone (zones at about five-semitone steps)",
+  "sources": [
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_A2_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_A2_v2.wav",
+      "source_sha256": "db6bad06c78577a105f6c2a5dc5c7ac0643c36e6904742411f0506dd9d6fa84b",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 220.0926,
+      "trim_start": 2387,
+      "loop_swell_db": [
+        8.95,
+        0.66
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_A2_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_A2_v1.wav",
+      "source_sha256": "5b3ff9f991642a6dc2fdad56a7d94f581077d2c4082cc1ed89156737716ff22c",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 219.8794,
+      "trim_start": 15033,
+      "loop_swell_db": [
+        12.22,
+        3.05
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_B2_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_B2_v2.wav",
+      "source_sha256": "a822fd195e60881afac5e0801d8d494b782a8f6787a08f3c711f5e00290b3fb6",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 246.8073,
+      "trim_start": 2465,
+      "loop_swell_db": [
+        11.09,
+        2.44
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_B2_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_B2_v1.wav",
+      "source_sha256": "1a873970a86da78ed8c9aa068303958496c34eee6fa94fcab39d499dbdfb7826",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 246.9138,
+      "trim_start": 21207,
+      "loop_swell_db": [
+        11.53,
+        1.27
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_D3_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_D3_v2.wav",
+      "source_sha256": "77893dbf1ea1be8c40ad756d16b916298e6b1b0742495e9853e020375592357c",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 293.8826,
+      "trim_start": 2774,
+      "loop_swell_db": [
+        8.64,
+        1.93
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_D3_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_D3_v1.wav",
+      "source_sha256": "583e660bc5daa4e094aef5fc014fbb92751040be8741ed7a16847306a1fe0a99",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 293.6225,
+      "trim_start": 9223,
+      "loop_swell_db": [
+        7.99,
+        1.3
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_F#3_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_F%233_v2.wav",
+      "source_sha256": "d7bc6b4c259b9543de4fe66228ee107205b8f539c8d7c1de71f5781d45a14fc7",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 370.1161,
+      "trim_start": 3494,
+      "loop_swell_db": [
+        11.53,
+        1.66
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_F#3_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_F%233_v1.wav",
+      "source_sha256": "8dc13d197373f0d1fe1b0744de57796800bde372906d3667398c55d473a383ea",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 369.9007,
+      "trim_start": 10602,
+      "loop_swell_db": [
+        8.56,
+        1.38
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_A3_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_A3_v2.wav",
+      "source_sha256": "3fc4a9e22037643fce11e755da72c61c664893f83e637c24a7b5c2d3824ab986",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 440.3006,
+      "trim_start": 1807,
+      "loop_swell_db": [
+        9.13,
+        1.48
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_A3_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_A3_v1.wav",
+      "source_sha256": "72817a53dfd2eb61eca94658c14e1cab6017629ca2f27bab8e394c6675bfaad7",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 439.8452,
+      "trim_start": 14014,
+      "loop_swell_db": [
+        7.09,
+        1.27
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_C4_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_C4_v2.wav",
+      "source_sha256": "5857387b40c412f756ef281c1171247664432a4e5078c98142d595d15cd92ef9",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 523.3922,
+      "trim_start": 1190,
+      "loop_swell_db": [
+        8.94,
+        1.23
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_C4_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_C4_v1.wav",
+      "source_sha256": "c07edd5b2119fa1da2207aba996961b50dd616f69bbcf2300ab271bc6c16239f",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 523.0864,
+      "trim_start": 6617,
+      "loop_swell_db": [
+        9.23,
+        1.17
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_E4_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_E4_v2.wav",
+      "source_sha256": "030c09a631ebbc7304fc0b47bb5c346cd646e7451d9fdc531870f2534c60d9e9",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 659.5826,
+      "trim_start": 3148,
+      "loop_swell_db": [
+        9.55,
+        2.02
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_E4_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_E4_v1.wav",
+      "source_sha256": "787fb4bcfb47d5c88ee1573c8db15f32d345386301be4a8eea6a825847413ae2",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 659.2395,
+      "trim_start": 11542,
+      "loop_swell_db": [
+        7.05,
+        1.47
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_G4_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_G4_v2.wav",
+      "source_sha256": "a1d6d5a0397541692e2f88a0cd9820eabe90407784ee631aa3bfa74772637a65",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 784.1166,
+      "trim_start": 7466,
+      "loop_swell_db": [
+        6.87,
+        1.38
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_G4_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_G4_v1.wav",
+      "source_sha256": "ed2a89cf254432d2af073699fa43ebfa16cfbc5552c7fc964a184fc434eaaa39",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 783.7455,
+      "trim_start": 11611,
+      "loop_swell_db": [
+        9.13,
+        1.63
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_B4_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_B4_v2.wav",
+      "source_sha256": "bdb85532f47e4ebd681f9617a415116e7e5aeb786dce2eeab5ab9b93c1b31644",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 987.9389,
+      "trim_start": 2341,
+      "loop_swell_db": [
+        9.33,
+        3.57
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_B4_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_B4_v1.wav",
+      "source_sha256": "ec4cea41ac77f251bf5f4158fe9cbeeae13755e3785106e505808de18fdddc0d",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 988.2697,
+      "trim_start": 12117,
+      "loop_swell_db": [
+        12.63,
+        2.12
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_D5_v2.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_D5_v2.wav",
+      "source_sha256": "0c2ca9de723bed0a0968e32126b934f778cd678b367a29e7fde91004daf84daf",
+      "family": 0,
+      "layer": 0,
+      "measured_hz": 1174.2056,
+      "trim_start": 4923,
+      "loop_swell_db": [
+        9.59,
+        2.52
+      ]
+    },
+    {
+      "path": "Strings/Violin Section/susVib/VlnEns_susVib_D5_v1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_D5_v1.wav",
+      "source_sha256": "f8d870457826c94270b9c3ead8e8ec02cb7e6c4a3481cded055641b7fab7df62",
+      "family": 0,
+      "layer": 1,
+      "measured_hz": 1174.3262,
+      "trim_start": 8511,
+      "loop_swell_db": [
+        8.79,
+        1.72
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_C2_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_C2_v2_1.wav",
+      "source_sha256": "09db4ed2c8eda02d1f6a27258a2292b56e65e94ecc0337265bbbac5d9978dc92",
+      "family": 1,
+      "layer": 0,
+      "measured_hz": 130.7846,
+      "trim_start": 2413,
+      "loop_swell_db": [
+        3.42,
+        0.69
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_C2_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_C2_v1_1.wav",
+      "source_sha256": "8b4e0e0985d245ac9ddc39cdd06cec5bd74fa80056c074736d6eb38fdccfe636",
+      "family": 1,
+      "layer": 1,
+      "measured_hz": 130.8801,
+      "trim_start": 4927,
+      "loop_swell_db": [
+        9.77,
+        2.1
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_E2_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_E2_v2_1.wav",
+      "source_sha256": "bb31bed6936b5c855fceb94d829e2d3a0492f9af4ad7a2cee57e783719710ceb",
+      "family": 1,
+      "layer": 0,
+      "measured_hz": 165.0252,
+      "trim_start": 284,
+      "loop_swell_db": [
+        4.12,
+        0.72
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_E2_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_E2_v1_1.wav",
+      "source_sha256": "5c4c636583ce43b694583e8cbf7a14d1f3efcb0e871fe7dedff8a6b354c432bf",
+      "family": 1,
+      "layer": 1,
+      "measured_hz": 164.8217,
+      "trim_start": 9057,
+      "loop_swell_db": [
+        11.27,
+        1.45
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_G2_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_G2_v2_1.wav",
+      "source_sha256": "e3552ebd2d1ac5d089cd2424d31ea88be8d887643311cb23abf5b416838ce2ba",
+      "family": 1,
+      "layer": 0,
+      "measured_hz": 195.5369,
+      "trim_start": 773,
+      "loop_swell_db": [
+        6.76,
+        1.92
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_G2_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_G2_v1_1.wav",
+      "source_sha256": "557c2e033951015c30765bf18266bce0dd0412e3ca646dd1a225c32422c60662",
+      "family": 1,
+      "layer": 1,
+      "measured_hz": 195.9244,
+      "trim_start": 12806,
+      "loop_swell_db": [
+        12.66,
+        2.46
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_B2_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_B2_v2_1.wav",
+      "source_sha256": "edc77038a83f47cf49296c0009fdac23cb5ade3133a2beabd0d2d1f591ccf3cb",
+      "family": 1,
+      "layer": 0,
+      "measured_hz": 247.1056,
+      "trim_start": 579,
+      "loop_swell_db": [
+        5.01,
+        0.8
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_B2_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_B2_v1_1.wav",
+      "source_sha256": "ad96d747c5125adec8f069c49091ee3ba937efd4a5b909d3c4938f17e3c8513d",
+      "family": 1,
+      "layer": 1,
+      "measured_hz": 246.9657,
+      "trim_start": 3957,
+      "loop_swell_db": [
+        10.04,
+        1.12
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_D3_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_D3_v2_1.wav",
+      "source_sha256": "f941028c5d5e854b4391669056f0f639799f80ac7c8da3939c7788b1a394d16c",
+      "family": 1,
+      "layer": 0,
+      "measured_hz": 293.2208,
+      "trim_start": 1877,
+      "loop_swell_db": [
+        5.29,
+        1.21
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_D3_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_D3_v1_1.wav",
+      "source_sha256": "61ab4cfc0ea90c683433a7c50b3bb4fa86a81c9d4854589562707d54ed028349",
+      "family": 1,
+      "layer": 1,
+      "measured_hz": 293.8486,
+      "trim_start": 10851,
+      "loop_swell_db": [
+        11.2,
+        1.66
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_F3_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_F3_v2_1.wav",
+      "source_sha256": "d281171e60b852451deecce57a6f5e9b623eea9632916336324c52c4ada6c750",
+      "family": 1,
+      "layer": 0,
+      "measured_hz": 349.9081,
+      "trim_start": 408,
+      "loop_swell_db": [
+        9.65,
+        1.18
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_F3_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_F3_v1_1.wav",
+      "source_sha256": "7a37f00ecb58fcaa5c32427a5ffb30950787b40c247409a8e18cfe0880955fd8",
+      "family": 1,
+      "layer": 1,
+      "measured_hz": 349.1602,
+      "trim_start": 9028,
+      "loop_swell_db": [
+        7.14,
+        0.78
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_A3_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_A3_v2_1.wav",
+      "source_sha256": "35984c7bfffe781d8e33bee045f66427a827794ff5c53c3d3bb82baeee3272dd",
+      "family": 1,
+      "layer": 0,
+      "measured_hz": 440.7718,
+      "trim_start": 1619,
+      "loop_swell_db": [
+        6.06,
+        0.84
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_A3_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_A3_v1_1.wav",
+      "source_sha256": "7cea6482a8f67536e3108f01b688d54d198e5820ffcd0ac5a49652d38f6ec065",
+      "family": 1,
+      "layer": 1,
+      "measured_hz": 439.7672,
+      "trim_start": 5204,
+      "loop_swell_db": [
+        6.02,
+        0.9
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_C4_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_C4_v2_1.wav",
+      "source_sha256": "81e1ef9109a1434974092c0165ffee44918b2553fd4afeeee42b91b8007ad263",
+      "family": 1,
+      "layer": 0,
+      "measured_hz": 522.6719,
+      "trim_start": 749,
+      "loop_swell_db": [
+        7.82,
+        1.43
+      ]
+    },
+    {
+      "path": "Strings/Viola Section/susvib/ViolaEns_susvib_C4_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_C4_v1_1.wav",
+      "source_sha256": "144ec7666be1b3b4da50937db4b1fc3675ca34bc2e871264707d83b8a0d526e6",
+      "family": 1,
+      "layer": 1,
+      "measured_hz": 522.8937,
+      "trim_start": 5958,
+      "loop_swell_db": [
+        10.67,
+        1.62
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_C1_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_C1_v3_1.wav",
+      "source_sha256": "19195ab85ab71626bd11e7100febdaeeba1c237ff5887b934fd0ffd8dfad82cb",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 65.3694,
+      "trim_start": 1483,
+      "loop_swell_db": [
+        2.94,
+        1.26
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_C1_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_C1_v1_1.wav",
+      "source_sha256": "abdcea431f384e135c469b0f3e4ac2a437f282f521dc5bcbe22abc221536e8de",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 65.3865,
+      "trim_start": 12514,
+      "loop_swell_db": [
+        6.3,
+        1.34
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_E1_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_E1_v3_1.wav",
+      "source_sha256": "ee190b95be4f2416b9f41d248d255a4d7067b722f9b21482b30bc9872a9bb0d1",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 82.234,
+      "trim_start": 717,
+      "loop_swell_db": [
+        5.27,
+        1.35
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_E1_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_E1_v1_1.wav",
+      "source_sha256": "de31a61b02d4e1d5a79b8bc432b0f35fe2e434290ad34402cc0f2dd7dc278cde",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 82.2658,
+      "trim_start": 2008,
+      "loop_swell_db": [
+        6.22,
+        1.42
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_G1_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_G1_v3_1.wav",
+      "source_sha256": "e4c61d4ab855ec20ddb69ff608a1c066ff8a779ddd08d1dfe1d534d3a4563ad0",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 97.9329,
+      "trim_start": 670,
+      "loop_swell_db": [
+        2.58,
+        1.0
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_G1_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_G1_v1_1.wav",
+      "source_sha256": "9e5d24e8e28d6c7f650f9bb2b33d43c13e341a8bd33124c64e23881378b181ba",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 97.9157,
+      "trim_start": 5028,
+      "loop_swell_db": [
+        7.59,
+        1.42
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_B1_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_B1_v3_1.wav",
+      "source_sha256": "8331a0e13f41243efab111f9b5e9185524c27ee48631269acecafc954ab7eaa8",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 123.5065,
+      "trim_start": 582,
+      "loop_swell_db": [
+        4.37,
+        1.02
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_B1_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_B1_v1_1.wav",
+      "source_sha256": "4f95c087c4b8d87ee591e9d39c3c9caf085c6f1b9125eac3ca9e4e637da628ee",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 123.6074,
+      "trim_start": 5339,
+      "loop_swell_db": [
+        7.66,
+        0.79
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_D2_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_D2_v3_1.wav",
+      "source_sha256": "fc946615cd6550570c8f05d61c0d59b9079bf9daba8bf25be7943487fea5a7ae",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 146.8408,
+      "trim_start": 248,
+      "loop_swell_db": [
+        3.83,
+        0.75
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_D2_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_D2_v1_1.wav",
+      "source_sha256": "e8640dec9febc6e39fcf06b19d2c95a85d5ff8c38f13c9879e69f551eaf38ab8",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 147.151,
+      "trim_start": 5361,
+      "loop_swell_db": [
+        7.72,
+        1.55
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_F2_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_F2_v3_1.wav",
+      "source_sha256": "d965197faf2e6ab8675f1d65505e5ba934a5ab769412d314bad94133e18f24d0",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 174.771,
+      "trim_start": 184,
+      "loop_swell_db": [
+        7.6,
+        1.27
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_F2_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_F2_v1_1.wav",
+      "source_sha256": "162054eab4ba118924f8f8986cf1b17ccfd65211d1945743ffbae30b4953f901",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 174.6826,
+      "trim_start": 4572,
+      "loop_swell_db": [
+        10.9,
+        2.63
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_A2_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_A2_v3_1.wav",
+      "source_sha256": "b7f226f19b9616abe5fa4a27ef50116667e19eb0127f30eacfa6d1a83e9149f0",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 219.9106,
+      "trim_start": 714,
+      "loop_swell_db": [
+        8.78,
+        1.19
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_A2_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_A2_v1_1.wav",
+      "source_sha256": "c97a003184fdcb153d6b6c0bae8d82a90592a1b04b06bd7caaeda8b9776d5284",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 219.961,
+      "trim_start": 4234,
+      "loop_swell_db": [
+        5.66,
+        0.61
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_C3_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_C3_v3_1.wav",
+      "source_sha256": "51e884d54eea3bf4ba7ee35289a09f15ddb6a52cd849248d01bf18477ccbd07b",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 261.33,
+      "trim_start": 117,
+      "loop_swell_db": [
+        9.67,
+        1.38
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_C3_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_C3_v1_1.wav",
+      "source_sha256": "a614ee7ca821b44660236e47b89620cf914ec6ad27a99bc0d9764f47dbe512e1",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 261.6429,
+      "trim_start": 2458,
+      "loop_swell_db": [
+        8.71,
+        0.87
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_E3_v3_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_E3_v3_1.wav",
+      "source_sha256": "24a7ffdc23087026c4ef2d421441253c71490df9cf0757e93ffb14b4e61481ef",
+      "family": 2,
+      "layer": 0,
+      "measured_hz": 329.4875,
+      "trim_start": 304,
+      "loop_swell_db": [
+        9.92,
+        2.64
+      ]
+    },
+    {
+      "path": "Strings/Cello Section/susvib/susvib_E3_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_E3_v1_1.wav",
+      "source_sha256": "d2f961e30bf64021cf4acbd88e0e7a1fd1840943ae78c62a711bcce3d109216e",
+      "family": 2,
+      "layer": 1,
+      "measured_hz": 329.1407,
+      "trim_start": 893,
+      "loop_swell_db": [
+        6.94,
+        0.9
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_F#0_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_F%230_v3_rr1.wav",
+      "source_sha256": "bc9070ac281edf964d9feac92b153325fec22e6a88b53a73acf2aa7850d1b9c3",
+      "family": 3,
+      "layer": 0,
+      "measured_hz": 46.2604,
+      "trim_start": 39,
+      "loop_swell_db": [
+        2.35,
+        1.33
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_F#0_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_F%230_v1_rr1.wav",
+      "source_sha256": "b965551477a816f38305f65b4cfa4595ca5c0d38e92c8b6128f070eb768671b5",
+      "family": 3,
+      "layer": 1,
+      "measured_hz": 46.2456,
+      "trim_start": 56,
+      "loop_swell_db": [
+        3.47,
+        1.64
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_A#0_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_A%230_v3_rr1.wav",
+      "source_sha256": "f5fca51ec4a3c1d03fcd6a9d94784bf84384c05e309838d6d8929d076762f991",
+      "family": 3,
+      "layer": 0,
+      "measured_hz": 58.2628,
+      "trim_start": 836,
+      "loop_swell_db": [
+        3.18,
+        0.94
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_A#0_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_A%230_v1_rr1.wav",
+      "source_sha256": "bfed36e434e4f8a10abecf9ef8875a409ed32a698ab0faad7e253337c7bc6bf6",
+      "family": 3,
+      "layer": 1,
+      "measured_hz": 58.2643,
+      "trim_start": 1209,
+      "loop_swell_db": [
+        2.35,
+        0.99
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_D1_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_D1_v3_rr1.wav",
+      "source_sha256": "c554aa070923f478cda513f67b6677c453405cdbdf38c1af681d029b3640ada1",
+      "family": 3,
+      "layer": 0,
+      "measured_hz": 73.3959,
+      "trim_start": 1576,
+      "loop_swell_db": [
+        1.87,
+        0.47
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_D1_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_D1_v1_rr1.wav",
+      "source_sha256": "02aafdc953cd07649f4e0be571a5569c80665cf61ac6062b6bae22c302289d2f",
+      "family": 3,
+      "layer": 1,
+      "measured_hz": 73.438,
+      "trim_start": 554,
+      "loop_swell_db": [
+        1.98,
+        0.84
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_F#1_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_F%231_v3_rr1.wav",
+      "source_sha256": "ee6701e62ce18dbf4c20f758e8e164e4334ea0078157df0a7b5afa75be6f36a3",
+      "family": 3,
+      "layer": 0,
+      "measured_hz": 92.4449,
+      "trim_start": 74,
+      "loop_swell_db": [
+        3.1,
+        0.8
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_F#1_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_F%231_v1_rr1.wav",
+      "source_sha256": "dbf26625b7e12392fb8222f75b82fc2e48d3121cbb9b7b7ebe6361225b9a2313",
+      "family": 3,
+      "layer": 1,
+      "measured_hz": 92.4784,
+      "trim_start": 4233,
+      "loop_swell_db": [
+        2.91,
+        1.0
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_A1_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_A1_v3_rr1.wav",
+      "source_sha256": "1abfc2d6bddeabe86b3195e9c4361991ec759b572baac2364ba8072b27903b40",
+      "family": 3,
+      "layer": 0,
+      "measured_hz": 110.1446,
+      "trim_start": 999,
+      "loop_swell_db": [
+        3.23,
+        0.79
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_A1_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_A1_v1_rr1.wav",
+      "source_sha256": "c1594db9e43851d429e34086cf16944b5a9f5e48d544d10ebd17a4f682d376e1",
+      "family": 3,
+      "layer": 1,
+      "measured_hz": 110.1343,
+      "trim_start": 1567,
+      "loop_swell_db": [
+        4.2,
+        0.39
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_C#2_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_C%232_v3_rr1.wav",
+      "source_sha256": "7be4df2b55ed12b796b84575f88d714155b68340a7f667006e5edb84910ef4f3",
+      "family": 3,
+      "layer": 0,
+      "measured_hz": 138.5963,
+      "trim_start": 183,
+      "loop_swell_db": [
+        3.84,
+        0.67
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/SusVib/BKCtbss_SusVib_C#2_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_C%232_v1_rr1.wav",
+      "source_sha256": "083751a59f87ed5ded98d073226ea975441748ee5a2a1647784029cb60cb4570",
+      "family": 3,
+      "layer": 1,
+      "measured_hz": 138.8318,
+      "trim_start": 1188,
+      "loop_swell_db": [
+        2.01,
+        0.77
+      ]
+    },
+    {
+      "path": "Strings/Harp/KSHarp_E1_f.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_E1_f.wav",
+      "source_sha256": "70f534627d6155bab46262e0383a8b431c25fde78ca029947d453748b1f73038",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 40.8308,
+      "trim_start": 422,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_B1_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_B1_mf.wav",
+      "source_sha256": "284034807efbb429cb63f6fb744834b18e6281a4914e6460de0a5818b5d0d0e6",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 61.2295,
+      "trim_start": 526,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_F2_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_F2_mf.wav",
+      "source_sha256": "d5c0fb42c176af334fd6f6d1b97858556619c51e177efb5b0c6c23bc19ce6dad",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 86.9513,
+      "trim_start": 652,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_C3_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_C3_mf.wav",
+      "source_sha256": "e5d232771704e140959819de8cf2a3e0ba49d021ca77354c42664ce4fce6d9f3",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 130.6182,
+      "trim_start": 0,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_G3_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_G3_mf.wav",
+      "source_sha256": "62600eb1b37bc2829ca65351f7ca7e506c9ae472abd5bea0765a8b8fa7df2772",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 195.0964,
+      "trim_start": 1381,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_D4_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_D4_mf.wav",
+      "source_sha256": "ebfde8aab4411019e37e3426f4dd88d6a52a38c2d0261d7f10ec63d8ff584dc7",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 291.6105,
+      "trim_start": 325,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_A4_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_A4_mf.wav",
+      "source_sha256": "3665f3975cad4a33f46784aa4f896f4b4319ba2b7831e892d975bc38c9f09f23",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 437.5764,
+      "trim_start": 298,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_E5_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_E5_mf.wav",
+      "source_sha256": "95dd9ddb0bd15bee7687906e00f25aafcaa43020cc9501f0e8b6cabf0e9a53ec",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 655.0498,
+      "trim_start": 431,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_B5_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_B5_mf.wav",
+      "source_sha256": "f2757b674c6b7301bed52e17a1ae3e3d34d628b3f7edc5773ebb25798d2541f7",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 983.239,
+      "trim_start": 330,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Harp/KSHarp_F6_mf.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Harp/KSHarp_F6_mf.wav",
+      "source_sha256": "7cf4c012542df737be39900af262fdd980681956e734f43af106718184f34213",
+      "family": 4,
+      "layer": 0,
+      "measured_hz": 1392.187,
+      "trim_start": 97,
+      "loop_swell_db": null
+    }
+  ]
+}

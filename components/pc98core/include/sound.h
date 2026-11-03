@@ -63,6 +63,7 @@ void	spk_bind(void);
 
 void	fm_open(UINT rate);
 void	fm_set_volume(UINT vol);
+void fm_orchestra_enable(int on); /* optional synthesis; original register state stays intact */
 void	ssg_open(UINT rate);
 void	ssg_set_volume(UINT vol);
 void	board_reset(const struct Pc98Settings *cfg, SoundBoard id);

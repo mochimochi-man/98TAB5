@@ -74,7 +74,7 @@ extern "C" int g_backlight_pct;   // main.cpp owns it so boot can apply it
 extern "C" int g_line200;         // main.cpp: how 200-line screens are drawn
 extern "C" void line200_apply(int m);
 extern "C" void line200_refresh(void);
-extern "C" void audio_set_fx(int mode);  // audio_codec.cpp: 0 original, 1 warm, 2 hall
+extern "C" void audio_set_fx(int mode);  // audio_codec.cpp: 0 Original, 2 Hall, 3 Synthesizer, 4 Orchestra
 extern "C" int  audio_get_fx(void);
 extern "C" void lcd_lamps_enable(bool on);   // lcd_mipi.cpp: the drive lamps
 extern "C" bool lcd_lamps_enabled(void);
@@ -93,12 +93,12 @@ extern "C" bool lcd_lamps_enabled(void);
 // screen to its dimmest. RET is not directional - it is the one key that says
 // "next" - so it is the one that wraps, which keeps every value reachable
 // without arrow keys.
-static int level_step(int cur, int dir, bool wrap) {
+static int level_step(int cur, int dir, bool wrap, int minimum=LEVEL_MIN) {
     int v = ((cur + LEVEL_STEP - 1) / LEVEL_STEP) * LEVEL_STEP + dir * LEVEL_STEP;
     if (v > 100) {
-        v = wrap ? LEVEL_MIN : 100;
-    } else if (v < LEVEL_MIN) {
-        v = wrap ? 100 : LEVEL_MIN;
+        v = wrap ? minimum : 100;
+    } else if (v < minimum) {
+        v = wrap ? 100 : minimum;
     }
     return v;
 }
@@ -394,12 +394,27 @@ static int ext_match(const char *name, int drive) {
 // Shown on the screenshot row once one has been taken.
 static char s_last_shot[24] = {0};
 
-// The main screen: two columns of grouped settings. sel 0..16 runs down the left column and on into the right.
+// The main screen: two columns of grouped settings. sel 0..17 runs down the left column and on into the right.
+static int sound_step(int current,int direction,bool wrap) {
+    static const int order[]={0,2,3,4};
+    int at=0;for(int i=0;i<4;i++)if(order[i]==current)at=i;
+    int next=at+direction;
+    if(wrap)next=(next+4)%4;
+    if(next<0)next=0;
+    if(next>3)next=3;
+    return order[next];
+}
+
 static void draw_drives(int sel) {
     static const char *const l200[] = {"Original", "Doubled", "Interpolated"};
-    static const char *const sfx[] = {"Original", "Warm", "Hall"};
+    static const char *const sfx[] = {"Original", "Original", "Hall", "Synthesizer (HVY)", "Orchestra (HVY)"};
     char clk[16], cpu[48], bios[32], font[32], bl[16], vol[16];
-    snprintf(clk, sizeof(clk), "x%u", (unsigned)g_settings.clock_mul);
+    const unsigned mhz100 = (unsigned)((uint64_t)g_settings.base_clock * g_settings.clock_mul / 10000u);
+    snprintf(clk, sizeof(clk), "%u.%02uMHz x%u", mhz100 / 100, mhz100 % 100, (unsigned)g_settings.clock_mul);
+    const bool clock8 = g_settings.base_clock == CLK_BASE8;
+    const bool clock_pending = g_settings.base_clock != g_mach.base_clock;
+    const char *family = clock8 ? (clock_pending ? "8MHz (Reset)" : "8MHz") :
+                                  (clock_pending ? "10MHz (Reset)" : "10MHz");
     // Read at boot, so a change waits for RESET - and says so.
     snprintf(cpu, sizeof(cpu), "%s%s", cpu_name(g_cpu_mode), g_cpu_mode != g_cpu_mode_boot ? " (Reset)" : "");
     // The ROMs in use, chosen from whatever BIOS*.ROM / FONT*.ROM sit in the SD root; read once at machine_init.
@@ -416,8 +431,9 @@ static void draw_drives(int sel) {
         { "FDD1", d[0], UI_ACTION, 0, 0 }, { "FDD2", d[1], UI_ACTION, 0, 0 }, { "HDD", d[2], UI_ACTION, 0, 0 },
         { "Create New Disk", NULL, UI_ACTION, 0, 0 },
     };
-    const UiRow sys[4] = {
-        { "CPU Clock", clk, UI_ADJUST, 0, 0 }, { "CPU", cpu, UI_ADJUST, 0, 0 },
+    const UiRow sys[5] = {
+        { "CPU Clock", clk, UI_ADJUST, 0, 0 }, { "Clock Family", family, UI_ADJUST, 0, 0 },
+        { "CPU", cpu, UI_ADJUST, 0, 0 },
         { "BIOS", bios, UI_ACTION, 0, 0 }, { "Font", font, UI_ACTION, 0, 0 },
     };
     const UiRow av[5] = {
@@ -442,12 +458,12 @@ static void draw_drives(int sel) {
     ui_section(lx0, lx1, y, "DISKS", NULL);
     y = ui_group(lx0, lx1, y + 22, disks, 4, sel, 0) + 14;
     ui_section(lx0, lx1, y, "SYSTEM", NULL);
-    ui_group(lx0, lx1, y + 22, sys, 4, sel - 4, 0);
+    ui_group(lx0, lx1, y + 22, sys, 5, sel - 4, 0);
     y = 50;
     ui_section(rx0, rx1, y, "DISPLAY & SOUND", NULL);
-    y = ui_group(rx0, rx1, y + 22, av, 5, sel - 8, 0) + 14;
+    y = ui_group(rx0, rx1, y + 22, av, 5, sel - 9, 0) + 14;
     ui_section(rx0, rx1, y, "TOOLS", NULL);
-    ui_group(rx0, rx1, y + 22, tools, 4, sel - 13, 0);
+    ui_group(rx0, rx1, y + 22, tools, 4, sel - 14, 0);
     static const UiKey keys[4] = {
         { UK_UPDOWN, NULL, "Select" }, { UK_LEFTRIGHT, NULL, "Change" }, { 0, "Enter", "OK" }, { 0, "Esc", "Close" },
     };
@@ -892,6 +908,7 @@ static void save_settings(void) {
     nvs_handle_t nh;
     if (nvs_open("pc98", NVS_READWRITE, &nh) == ESP_OK) {
         nvs_set_u8(nh, "multiple", (uint8_t)g_settings.clock_mul);
+        nvs_set_u8(nh, "clkbase8", g_settings.base_clock == CLK_BASE8 ? 1 : 0);
         nvs_set_u8(nh, "cpumode", (uint8_t)g_cpu_mode);
         nvs_set_u8(nh, "scaler", (uint8_t)lcd_get_scale_mode());
         nvs_set_u8(nh, "backlight", (uint8_t)g_backlight_pct);
@@ -975,36 +992,35 @@ extern "C" void menu_disk_run(void) {
         ets_printf("MENU key nk=%02x dn=%d sel=%d\n", nk, dn, sel);
         if (!dn) continue;
         if (nk == NK_ESC) { ets_printf("MENU close\n"); break; }
-        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 16;
-        if (key_is_down(nk)) sel = (sel < 16) ? sel + 1 : 0;
+        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 17;
+        if (key_is_down(nk)) sel = (sel < 17) ? sel + 1 : 0;
         // Left/right adjust the rows that hold a value rather than doing
         // something; everywhere else they are ignored.
         {
             const int dir = key_is_right(nk) ? 1 : (key_is_left(nk) ? -1 : 0);
             if (dir) {
-                if (sel == 8) {
+                if (sel == 9) {
                     g_backlight_pct = level_step(g_backlight_pct, dir, false);
                     tab5_backlight_set(g_backlight_pct);
-                } else if (sel == 9) {
-                    audio_set_volume(level_step(audio_get_volume(), dir, false));
                 } else if (sel == 10) {
+                    audio_set_volume(level_step(audio_get_volume(), dir, false, 0));
+                } else if (sel == 11) {
                     const int m = g_line200 + dir;
                     if (m >= 0 && m <= 2) {
                         line200_apply(m);
                         line200_refresh();
                     }
-                } else if (sel == 12) {
+                } else if (sel == 13) {
                     lcd_lamps_enable(dir > 0);
-                } else if (sel == 11) {
-                    const int m = audio_get_fx() + dir;
-                    if (m >= 0 && m <= 2) {
-                        audio_set_fx(m);
-                    }
+                } else if (sel == 12) {
+                    audio_set_fx(sound_step(audio_get_fx(),dir,false));
                 } else if (sel == 4) {
                     const UINT mult = clock_step(g_settings.clock_mul, dir, false);
                     g_settings.clock_mul = mult;       // display follows immediately
                     g_speed_req = (int)mult;      // emulator loop applies it
                 } else if (sel == 5) {
+                    g_settings.base_clock = dir > 0 ? CLK_BASE5 : CLK_BASE8;
+                } else if (sel == 6) {
                     g_cpu_mode = cpu_step(g_cpu_mode, dir, false);
                 }
             }
@@ -1017,32 +1033,34 @@ extern "C" void menu_disk_run(void) {
                 const UINT mult = clock_step(g_settings.clock_mul, 1, true);
                 g_settings.clock_mul = mult;         // display follows immediately
                 g_speed_req = (int)mult;        // emulator loop applies it
-            } else if (sel == 5) {              // CPU: next, wrapping
+            } else if (sel == 5) {              // oscillator family: applies on reset
+                g_settings.base_clock = g_settings.base_clock == CLK_BASE8 ? CLK_BASE5 : CLK_BASE8;
+            } else if (sel == 6) {              // CPU: next, wrapping
                 g_cpu_mode = cpu_step(g_cpu_mode, 1, true);
-            } else if (sel == 6) {              // BIOS ROM: pick a file from the SD
+            } else if (sel == 7) {              // BIOS ROM: pick a file from the SD
                 browse_rom(0);
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 7) {              // FONT ROM: pick a file from the SD
+            } else if (sel == 8) {              // FONT ROM: pick a file from the SD
                 browse_rom(1);
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 8) {              // Backlight: next, wrapping
+            } else if (sel == 9) {              // Backlight: next, wrapping
                 g_backlight_pct = level_step(g_backlight_pct, 1, true);
                 tab5_backlight_set(g_backlight_pct);
-            } else if (sel == 9) {              // Volume: next, wrapping
-                audio_set_volume(level_step(audio_get_volume(), 1, true));
-            } else if (sel == 10) {              // 200-line graphics: next, wrapping
+            } else if (sel == 10) {              // Volume: next, wrapping
+                audio_set_volume(level_step(audio_get_volume(), 1, true, 0));
+            } else if (sel == 11) {              // 200-line graphics: next, wrapping
                 line200_apply((g_line200 + 1) % 3);
                 line200_refresh();
-            } else if (sel == 11) {              // Sound: next, wrapping
-                audio_set_fx((audio_get_fx() + 1) % 3);
-            } else if (sel == 12) {              // Drive lamps: on/off
+            } else if (sel == 12) {              // Sound: next, wrapping
+                audio_set_fx(sound_step(audio_get_fx(),1,true));
+            } else if (sel == 13) {              // Drive lamps: on/off
                 lcd_lamps_enable(!lcd_lamps_enabled());
-            } else if (sel == 13) {              // Screenshot
+            } else if (sel == 14) {              // Screenshot
                 if (!screenshot_save(s_last_shot, sizeof(s_last_shot))) {
                     snprintf(s_last_shot, sizeof(s_last_shot), "FAILED");
                 }
-            } else if (sel == 14 || sel == 15) {   // USB Mode: arm the flag, reboot
-                const int m = (sel == 14) ? USB_MODE_SD : USB_MODE_IMAGE;
+            } else if (sel == 15 || sel == 16) {   // USB Mode: arm the flag, reboot
+                const int m = (sel == 15) ? USB_MODE_SD : USB_MODE_IMAGE;
                 if (m == USB_MODE_IMAGE && choose_image_drive() < 0) {
                     lcd_menu_clear();   // back to the menu
                     draw_drives(sel);
@@ -1069,7 +1087,7 @@ extern "C" void menu_disk_run(void) {
                 sd_unmount();
                 panel_tab5_blank_early();
                 esp_restart();
-            } else if (sel == 16) {             // RESET: persist the settings, reboot
+            } else if (sel == 17) {             // RESET: persist the settings, reboot
                 save_settings();
                 sd_unmount();                   // same reason as USB Mode above
                 panel_tab5_blank_early();

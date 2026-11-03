@@ -10,3 +10,6 @@ LICENSE.md in the parent directory says which applies to what.
   FatFs.txt                 the FAT filesystem (ChaN)
   Shinonome.txt             the bitmap fonts the built-in FONT.ROM is made from
                             (public domain)
+  ../components/pc98core/sound/samples/LICENSE
+                            CC0-1.0 of the Orchestra instrument recordings
+                            (VSCO 2 Community Edition)

@@ -167,6 +167,20 @@ Used by `rom_src/mkfont_esp.py` to generate the built-in `FONT_ESP.ROM`.
 The Debian packaging of these fonts is GPL-2+, but that covers the packaging
 scripts only. No part of it is used or distributed here.
 
+### 4.6 VSCO 2 Community Edition — CC0-1.0
+
+`components/pc98core/sound/samples/orchestra_bank.bin`, the instrument
+recordings the Orchestra sound effect plays, is processed from selected files
+of VSCO 2 Community Edition.
+
+- Recording: Sam Gossner / Simon Dalzell; original sample editing: Elan
+  Hickler / Soundemote
+- Upstream: <https://github.com/sgossner/VSCO-2-CE>
+- Licence: **CC0-1.0** (public-domain dedication). Modification and
+  redistribution, commercial or not, need no permission or attribution.
+  The text is in `components/pc98core/sound/samples/LICENSE`; the pinned
+  revision, per-file SHA-256 and processing are in `SOURCES.json` beside it.
+
 ## 5. Copyleft
 
 Nothing under a copyleft licence is compiled into the firmware **or present in

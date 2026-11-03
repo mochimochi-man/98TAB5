@@ -13,7 +13,7 @@ idf_build_set_property(COMPILE_OPTIONS "-Wno-error;-Wno-stringop-truncation;-Wno
 # that `esptool image-info` and every OTA tool read. Set explicitly, because
 # ESP-IDF otherwise takes the FIRST LINE of version.txt - which is the title of
 # the release notes, not a version.
-set(PROJECT_VER "1.0.0")
+set(PROJECT_VER "1.1.0")
 
 # CPU core: 1 = components/pc98core/cpu. Set here so every component sees the same value.
 if(NOT DEFINED PC98_NEWCPU)

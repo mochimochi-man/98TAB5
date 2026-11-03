@@ -50,12 +50,45 @@ static void check_read(unsigned hz, unsigned duration, int nd)
     while (F.phase != PH_RESULT) tick();
     assert(!(F.res[0] & ST0_ABN) && !F.res[1] && !F.res[2]);
 }
+static void check_read_id(void)
+{
+    setup(7372800, 0, 0);
+    reset_controller();
+    fm_track_t *t=(fm_track_t *)fm_disk_track(fdd_media_disk(0),0,0);
+    fm_track_t saved=*t;
+    t->nsect=1;t->sec[0].pos_us=1000;t->sec[0].id_crc_ok=1;
+    t->sec[0].no_data=1;t->sec[0].data_crc_ok=0;
+    for(unsigned n=0;n<=7;n++) for(unsigned duration=0;duration<2;duration++) {
+        ev_reset_all();g_cpu.clocks_done=0;g_cpu.slice_len=g_cpu.slice_left=EV_MAXCLOCK;
+        reset_controller();F.clk64=0;F.clk_last=0;F.t=0;F.ctrl|=0x40;
+        t->sec[0].n=n;t->sec[0].data_ns=duration?40000000:0;
+        assert(fm_sector_id_span_us(t,0)==352);
+        F.cmd[0]=0x4a;F.cmd[1]=0;command_ready();
+        assert(F.t==us_to_clk(1352));
+        assert(!ev_armed(EV_FDCBYTE));
+        assert(F.phase==PH_EXEC && ev_left(EV_FDCINT)==us_to_clk(1352));
+        end_event(EV_FDCINT,1);
+        assert(!F.res[1]&&!F.res[2]&&F.res[6]==n);
+    }
+    t->sec[0].fm=1;assert(fm_sector_id_span_us(t,0)==416);
+    *t=saved;
+    puts("PASS: READ ID completes at ID CRC, independent of data length/rate/CRC or missing DAM");
+}
+
 int main(void)
 {
     HFILE image = hf_create("/timing.hdm"); assert(image);
     assert(hf_seek(image, 77*2*8*1024-1, HF_SEEK_SET) >= 0);
     const unsigned char zero = 0; assert(hf_write(image, &zero, 1) == 1); hf_close(image);
     assert(drv_fd_mount(0, "/timing.hdm") == 0);
+    check_read_id();
+    setup(7372800, 0, 0);
+    fm_track_t *gap_track=(fm_track_t *)fm_disk_track(fdd_media_disk(0),0,0);
+    gap_track->sec[0].data_offset_ns=2000000;
+    assert(fm_sector_span_us(gap_track,0)==18416);
+    F.t=us_to_clk(1000+18416);start_transfer(1024,1);
+    assert(F.data_start>=us_to_clk(3000)-2 && F.data_start<=us_to_clk(3000)+2);
+    gap_track->sec[0].data_offset_ns=0;
     for (unsigned mode = 0; mode < 2; mode++) {
         check_read(7372800, 0, mode);           /* ordinary 500 kbit/s media */
         check_read(7372800, 20480000, mode);    /* a 20 us/byte recording */

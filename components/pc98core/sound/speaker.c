@@ -138,17 +138,38 @@ static UINT64 high_until(UINT64 tau)
 /* high time during [a, b), positions in Q16 CPU clocks from the window's base clock */
 static UINT64 high_between(UINT32 base, UINT64 a, UINT64 b)
 {
-	UINT64 off;
+	SINT64 off;
 
 	if (!r.gate || b <= a) return 0;
 	if (r.waiting) return r.mode == 0 ? 0 : b - a;
 	if (r.mode == 1 || r.mode == 5 || r.settled) return b - a;
-	off = (UINT64)(UINT32)(base - r.t0) << 16;
-	if ((r.mode == 0 || r.mode == 4) && a + off > ((UINT64)(r.n + 2) * g_mach.clock_mul << 16)) {
+	/* The load can fall inside this frame, after the window's base: the offset is then negative. Unsigned, it
+	 * wrapped to about 2^32 clocks, which shifted the wave's phase at every count rewrite (a game's vibrato
+	 * became noise) and made modes 0 / 4 look settled at once. [a, b) never starts before the load. */
+	{
+		/* A load long past (a count set once, then only the buzzer bit switched) must not read as a negative
+		 * offset once 2^31 clocks have gone by: move the reference forward by whole periods (the wave repeats);
+		 * modes 0 / 4 have long settled. A load inside this frame is less than one frame ahead of base. */
+		const UINT32 since = base - r.t0;
+
+		if (since > 0x40000000u && since < 0xc0000000u) {
+			if (r.mode == 0 || r.mode == 4) {
+				r.settled = 1;
+				return b - a;
+			}
+			{
+				const UINT32 per = r.n * g_mach.clock_mul;
+
+				r.t0 += since / per * per;
+			}
+		}
+	}
+	off = (SINT64)(SINT32)(base - r.t0) * 65536;
+	if ((r.mode == 0 || r.mode == 4) && (SINT64)a + off > (SINT64)((UINT64)(r.n + 2) * g_mach.clock_mul << 16)) {
 		r.settled = 1;
 		return b - a;
 	}
-	return high_until(b + off) - high_until(a + off);
+	return high_until((UINT64)((SINT64)b + off)) - high_until((UINT64)((SINT64)a + off));
 }
 
 static void render(void *ctx, SINT32 *lr, UINT frames)

@@ -1,7 +1,0 @@
-{
-  "fdc_byte_pacing": "PASS: DMA/non-DMA, measured/nominal rates, CPU speed, overrun, TC, reset, write/scan, zero length, format 1.44 MB to 1.25 MB and reopen",
-  "sd_handle_lifecycle": "PASS: safe init, cache reuse, sync/close, idempotence, error propagation",
-  "release_media": "PASS: mount/read/write/flush/eject/swap and unsupported-format rejection",
-  "public_source_audit": "PASS: see SOURCE_AUDIT.json",
-  "final_public_hardware": "PASS: FreeDOS prompt and F12 directional wrap; left on public firmware"
-}

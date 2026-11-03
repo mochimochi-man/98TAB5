@@ -224,7 +224,11 @@ static void hid_iface_cb(hid_host_device_handle_t handle,
     }
     case HID_HOST_INTERFACE_EVENT_DISCONNECTED:
         g_kd_disc++;
-        if (arg != (void *)HID_PROTOCOL_MOUSE) KLOG("usb_kbd: keyboard disconnected\n");
+        if (arg != (void *)HID_PROTOCOL_MOUSE) {
+            static const uint8_t none[8]={0};
+            hid_kbd_report(HID_SRC_USB,none,8);
+            KLOG("usb_kbd: keyboard disconnected\n");
+        }
         if (arg == (void *)HID_PROTOCOL_MOUSE) { hid_mouse_detach(); KLOG("usb_kbd: mouse disconnected\n"); }
         hid_host_device_close(handle);
         break;
@@ -246,6 +250,9 @@ static void hid_dev_event(hid_host_device_handle_t handle,
         hid_host_device_start(handle);
         if (p.proto == HID_PROTOCOL_MOUSE) { hid_mouse_attach(); KLOG("usb_kbd: mouse connected\n"); }
         else KLOG("usb_kbd: keyboard connected\n");
+        hid_host_dev_info_t info={};
+        if(hid_host_get_device_info(handle,&info)==ESP_OK)
+            KLOG("usb_kbd: device VID=%04x PID=%04x\n",info.VID,info.PID);
         g_kd_conn++;
     }
 }
@@ -277,6 +284,7 @@ static void hid_task(void *arg) {
         }
 }
 
+extern "C" void tab5_usb_host_power(bool on);
 static void usb_lib_task(void *arg) {
     usb_host_config_t hc = {};
     hc.skip_phy_setup = false;
@@ -307,6 +315,7 @@ static void usb_lib_task(void *arg) {
     // ESP-IDF has the accessor for this and never calls it
     // (usb_dwc_ll_hcfg_set_fsls_supp_only), so the register is written here.
     USB_DWC_HS.hcfg_reg.fslssupp = 1;
+    tab5_usb_host_power(true);
     usb_host_lib_set_root_port_power(true);
     KLOG("usb_kbd: host limited to full speed (hubs reach FS/LS devices)\n");
     xTaskNotifyGive((TaskHandle_t)arg);
@@ -416,6 +425,26 @@ static void c0_probe_task(void *arg) {
     }
 }
 
+// A device left powered through repeated MCU-only resets (flashing, a boot
+// loop) can stop signalling attach until its power is removed; replugging was
+// the only cure. If nothing has attached shortly after boot, cut the USB-A
+// port's 5V for a second and restore it, a few times at most, then stop:
+// an empty port must not be cycled forever.
+static void usb_rearm_task(void *arg) {
+    (void)arg;
+    for (int attempt = 1; attempt <= 3; attempt++) {
+        vTaskDelay(pdMS_TO_TICKS(4000));
+        if (g_kd_conn) break;
+        KLOG("usb_kbd: nothing attached, power-cycling the port (%d/3)\n", attempt);
+        usb_host_lib_set_root_port_power(false);
+        tab5_usb_host_power(false);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        tab5_usb_host_power(true);
+        usb_host_lib_set_root_port_power(true);
+    }
+    vTaskDelete(NULL);
+}
+
 extern "C" void usb_kbd_init(void) {
     hid_map_init();
     xTaskCreatePinnedToCore(c0_probe_task, "c0probe", 3072, NULL, 2, NULL, 0);
@@ -423,11 +452,11 @@ extern "C" void usb_kbd_init(void) {
     // Power the USB-A port. On the Tab5 its 5V comes from an I/O expander pin
     // and the port is dead without it - which is invisible from the host stack:
     // enumeration simply never starts, and nothing reports an error.
-    // VBUS stays on, so a keyboard keeps a key held through a reset (COPY at boot); the host's
-    // root port is enabled only after FSLSSupp is set (usb_lib_task), or a keyboard already
-    // attached was enumerated while the setting changed under it and never came up.
-    tab5_usb_host_power(true);
-    vTaskDelay(pdMS_TO_TICKS(100));
+    // Start with the device unpowered while the controller/PHY is installed.
+    // Enabling VBUS before the host is ready can retain a failed attachment
+    // across MCU-only resets; usb_lib_task powers it after setting FS/LS mode.
+    tab5_usb_host_power(false);
+    vTaskDelay(pdMS_TO_TICKS(500));
     s_hid_evtq = xQueueCreate(10, sizeof(hid_evt_t));
 
     xTaskCreatePinnedToCore(usb_lib_task, "usb_lib", 4096, xTaskGetCurrentTaskHandle(), 2, NULL, 0);
@@ -440,4 +469,5 @@ extern "C" void usb_kbd_init(void) {
     if (hid_host_install(&dc) != ESP_OK) { KLOG("usb_kbd: hid_host_install FAIL\n"); return; }
     xTaskCreatePinnedToCore(hid_task, "hid_task", 4096, NULL, 2, NULL, 0);
     KLOG("usb_kbd: USB HID keyboard host ready\n");
+    xTaskCreatePinnedToCore(usb_rearm_task, "usb_rearm", 2560, NULL, 2, NULL, 0);
 }

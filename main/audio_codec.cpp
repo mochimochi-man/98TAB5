@@ -55,12 +55,14 @@ extern "C" volatile int g_audio_under = 0;  // ring-empty events (crackle)
 // square waves keep their corners. These are optional colourings, applied
 // here on the way to the codec - on this core, so the emulator pays nothing:
 //
-//   0  original   untouched
-//   1  warm       the edge taken off the top (a gentle low-pass) and some
-//                 weight added at the bottom (a low shelf)
-//   2  hall       warm, in a room: a small stereo reverb, its two sides tuned
-//                 apart so that a mono chip comes out wide
+//   0  Original     native FM
+//   1  retired      old Warm settings normalize to Original
+//   2  Hall         filtered native FM with stereo room ambience
+//   3  Synthesizer  procedural instrument replacement with ambience
+//   4  Orchestra    compact acoustic sample replacement with ambience
+extern "C" void fm_orchestra_enable(int on);
 static volatile int s_fx = 0;
+static volatile uint32_t s_dsp_us, s_dsp_blocks, s_dsp_max_us;
 #define PRIME_MS 80
 #define HIGH_MS  150
 static size_t s_prime_bytes = 22050 * RING_FRAME * PRIME_MS / 1000;
@@ -210,11 +212,17 @@ static void fx_process(const int16_t *p, int16_t *o, int frames, int mode) {
     const float pre = 0.6f;
     // The beep at the level the FM mix's direct sound comes out at, so the
     // two keep the balance they have with the effects off.
-    const float dry = (mode == 2) ? pre * 0.8f : pre;
+    const float dry = (mode >= 2) ? pre * 0.8f : pre;
     for (int i = 0; i < frames; i++) {
-        float l = bq_run(s_shelf, 0, bq_run(s_lp, 0, p[4 * i] * pre));
-        float r = bq_run(s_shelf, 1, bq_run(s_lp, 1, p[4 * i + 1] * pre));
-        if (mode == 2) {
+        float l = bq_run(s_lp, 0, p[4 * i] * pre);
+        float r = bq_run(s_lp, 1, p[4 * i + 1] * pre);
+        // Acoustic bass already has a strong fundamental. Keep Orchestra flat
+        // below 180 Hz instead of inheriting the legacy 5 dB bass boost.
+        if (mode != 4) {
+            l = bq_run(s_shelf, 0, l);
+            r = bq_run(s_shelf, 1, r);
+        }
+        if (mode >= 2) {
             const float in = (l + r) * 0.015f;
             float wl = 0.0f, wr = 0.0f;
             for (int k = 0; k < FX_COMBS; k++) {
@@ -238,8 +246,13 @@ static void fx_process(const int16_t *p, int16_t *o, int frames, int mode) {
             // The reverb wider than freeverb's 1.0 as well: each side gets a
             // little of the other's tail, inverted.
             const float w1 = 1.25f, w2 = -0.25f;
-            l = l * 0.8f + d * 0.35f + (wl * w1 + wr * w2) * 1.3f;
-            r = r * 0.8f - d * 0.35f + (wr * w1 + wl * w2) * 1.3f;
+            if (mode >= 3) {
+                l = l * 0.8f + (wl * 0.9f + wr * 0.1f) * 1.5f;
+                r = r * 0.8f + (wr * 0.9f + wl * 0.1f) * 1.5f;
+            } else {
+                l = l * 0.8f + d * 0.35f + (wl * w1 + wr * w2) * 1.3f;
+                r = r * 0.8f - d * 0.35f + (wr * w1 + wl * w2) * 1.3f;
+            }
         }
         o[2 * i] = fx_clip(l + p[4 * i + 2] * dry);
         o[2 * i + 1] = fx_clip(r + p[4 * i + 3] * dry);
@@ -257,7 +270,8 @@ static void mix_plain(const int16_t *p, int16_t *o, int frames) {
 }
 
 extern "C" void audio_set_fx(int mode) {
-    s_fx = (mode >= 0 && mode <= 2) ? mode : 0;
+    s_fx = (mode >= 0 && mode <= 4 && mode != 1) ? mode : 0;
+    fm_orchestra_enable(s_fx == 4 ? 2 : s_fx == 3 ? 1 : 0);
 }
 
 extern "C" int audio_get_fx(void) {
@@ -330,11 +344,16 @@ static void audio_task(void *arg) {
                     frames--;
                 }
             }
+            const int64_t dsp_start = esp_timer_get_time();
             if (fx && s_fx_ready) {
                 fx_process((const int16_t *)rx, mix, frames, fx);
             } else {
                 mix_plain((const int16_t *)rx, mix, frames);
             }
+            const uint32_t dsp_us = (uint32_t)(esp_timer_get_time() - dsp_start);
+            s_dsp_us += dsp_us;
+            s_dsp_blocks++;
+            if (dsp_us > s_dsp_max_us) s_dsp_max_us = dsp_us;
             esp_codec_dev_write(s_spk, mix, frames * 4);
         }
         if (carry) {
@@ -496,4 +515,13 @@ extern "C" void audio_set_volume(int percent) {
 
 extern "C" int audio_get_volume(void) {
     return s_volume;
+}
+
+extern "C" volatile long long g_prof_snd_task;
+// On-demand counters; no recurring serial traffic in a normal build.
+extern "C" void audio_diagnostics(void) {
+    ets_printf("AUDIO_STATUS volume=%d fx=%d dsp_total_us=%u blocks=%u max_block_us=%u under=%d drops=%d publish_total_us=%llu publish_frames=%llu render_total_us=%llu\n",
+        s_volume, (int)s_fx, (unsigned)s_dsp_us, (unsigned)s_dsp_blocks,
+        (unsigned)s_dsp_max_us, (int)g_audio_under, (int)g_audio_drops,
+        (unsigned long long)g_prof_snd, (unsigned long long)g_prof_snd_n, (unsigned long long)g_prof_snd_task);
 }

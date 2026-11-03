@@ -273,6 +273,15 @@ uint32_t fm_sector_wait_us(const fm_track_t *t, uint32_t phase_us, int idx)
 	return (pos + rev - ph) % rev;
 }
 
+/* READ ID ends at the ID CRC, before GAP2, DAM and the data field. */
+uint32_t fm_sector_id_span_us(const fm_track_t *t, int idx)
+{
+    if (!t || idx < 0 || idx >= t->nsect) return 0;
+    const int fm = t->sec[idx].fm != 0;
+    const uint64_t ns = (uint64_t)(fm ? 13u : 22u) * t->byte_ns * (fm ? 2u : 1u);
+    return (uint32_t)((ns + 999u) / 1000u);
+}
+
 uint32_t fm_sector_span_us(const fm_track_t *t, int idx)
 {
 	uint64_t ns;
@@ -280,7 +289,9 @@ uint32_t fm_sector_span_us(const fm_track_t *t, int idx)
 	if (idx < 0 || idx >= t->nsect) {
 		return 0;
 	}
-	ns = (uint64_t)L_SECTOR * t->byte_ns * (t->sec[idx].fm ? 2u : 1u);
+    const uint64_t byte_ns = (uint64_t)t->byte_ns * (t->sec[idx].fm ? 2u : 1u);
+    ns = t->sec[idx].data_offset_ns ? t->sec[idx].data_offset_ns + 2u * byte_ns :
+         L_SECTOR * byte_ns;
 	ns += t->sec[idx].data_ns ? t->sec[idx].data_ns :
 		(uint64_t)nominal_size(t->sec[idx].n) * t->byte_ns * (t->sec[idx].fm ? 2u : 1u);
 	return (uint32_t)((ns + 999u) / 1000u);

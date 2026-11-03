@@ -840,7 +840,7 @@ static void command_ready(void)
 		}
 		fdc_waiting = 0;
 		if (g && fm_track_next_id(t, phase_now(t), !F.mf, &idx, &w)) {
-			F.t += us_to_clk(w + fm_sector_span_us(t, idx));
+			F.t += us_to_clk(w + fm_sector_id_span_us(t, idx));
 			F.c = t->sec[idx].c;
 			F.h = t->sec[idx].h;
 			F.r = t->sec[idx].r;

@@ -35,3 +35,6 @@ AI.md
 CLAUDE.md
 GEMINI.md
 AGENTS.md
+
+# Embedded CC0 sample data is a build input.
+!components/pc98core/sound/samples/orchestra_bank.bin

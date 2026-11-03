@@ -58,6 +58,7 @@ typedef struct {
 	uint8_t		no_id;			/* no ID address mark at all (D88 status E0): the sector is invisible to the controller */
 	uint16_t	data_len;		/* data bytes stored (may differ from 128 << n) */
 	uint32_t	data_ns;		/* measured data-field duration, 0 = nominal track rate */
+	uint32_t	data_offset_ns; /* ID sync to first data byte, 0 = standard gap */
 	uint32_t	pos_us;			/* start of the ID field's sync after the index, in us */
 	uint32_t	tag;			/* backend private (where the data lives) */
 } fm_sector_t;
@@ -171,6 +172,7 @@ void		fm_track_layout(fm_track_t *t, int media, int hd_rot);
 /* Time (us) from `phase_us` (time since the index) until the ID field of sector idx starts to pass the head. */
 uint32_t	fm_sector_wait_us(const fm_track_t *t, uint32_t phase_us, int idx);
 /* From ID start to the end of the data field CRC. */
+uint32_t	fm_sector_id_span_us(const fm_track_t *t, int idx); /* sync through ID CRC only */
 uint32_t	fm_sector_span_us(const fm_track_t *t, int idx);
 /* Which ID of the requested density comes next after phase_us (ignoring bad-ID-CRC sectors)? */
 int		fm_track_next_id(const fm_track_t *t, uint32_t phase_us, int fm, int *idx, uint32_t *wait_us);

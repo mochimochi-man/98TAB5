@@ -9,6 +9,9 @@ machine_compile() {
   local FLAGS="-include $HOST/shim_machine/hostdefs.h ${OPT:--O2 -g} -Werror=implicit-function-declaration -fwrapv -fno-strict-aliasing"
   mkdir -p "$OBJ"
   local list="$OBJ/cmds.txt"; : > "$list"
+  # ESP-IDF embeds this PCM bank; host machine tests must link the same data.
+  printf '.section .rodata\n.balign 4\n.global _binary_pc98_orchestra_bank_start\n_binary_pc98_orchestra_bank_start:\n.incbin "%s"\n.section .note.GNU-stack,"",@progbits\n' "$CORE/sound/samples/orchestra_bank.bin" > "$OBJ/orchestra_bank.S"
+  gcc -c "$OBJ/orchestra_bank.S" -o "$OBJ/orchestra_bank.o" || return 1
   local f o
   # the firmware's own source list (components/pc98core/CMakeLists.txt, SRCS)
   local SRCLIST; SRCLIST=$(sed -n 's/^ *SRCS \(.*\) \${NEWCPU_SRCS}.*/\1/p' "$CORE/CMakeLists.txt" | tr ' ' '\n' | sed "s#^#components/pc98core/#")

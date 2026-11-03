@@ -33,6 +33,7 @@ static const UINT16 s_level[16] = {
 };
 
 static UINT32 s_samp;		/* ticks per output frame (Q15) */
+static UINT s_rate_30ms;	/* frames in 30 ms */
 static UINT32 s_recip;		/* 2^40 / s_samp */
 static SINT32 s_amp8[16];	/* the level's output amplitude, Q8 */
 static SINT32 s_hp_coef;	/* Q16 */
@@ -42,6 +43,7 @@ void ssg_open(UINT rate)
 	if (!rate) rate = 22050;
 	s_samp = (UINT32)((((UINT64)TICK_HZ << TQ) + rate / 2) / rate);
 	s_recip = (UINT32)(((UINT64)1 << 40) / s_samp);
+	s_rate_30ms = rate * 3 / 100 ? rate * 3 / 100 : 1;
 	s_hp_coef = (SINT32)(65536 - (65536ull * 1257 / 10) / rate);
 }
 
@@ -216,7 +218,9 @@ void ssg_render(void *ctx, SINT32 *lr, UINT frames)
 	/* All three at the fixed level 0 and the high-pass at rest: the output stays zero.  The tone and noise counters
 	 * and the envelope still run, to the same state as below: the counters for the whole block by arithmetic, the
 	 * envelope frame by frame while it runs. */
-	if (!s->x1 && !s->y1 && !((s->reg[8] | s->reg[9] | s->reg[10]) & 0x1f) && s->thalf[0] && s->thalf[1] &&
+	const int orch = orchestra_enabled() == 2;
+
+	if (!s->orch_active && !s->x1 && !s->y1 && !((s->reg[8] | s->reg[9] | s->reg[10]) & 0x1f) && s->thalf[0] && s->thalf[1] &&
 	    s->thalf[2] && s->nhalf) {
 		const UINT64 total = (UINT64)frames * s_samp;
 		UINT64 w = total;
@@ -239,7 +243,8 @@ void ssg_render(void *ctx, SINT32 *lr, UINT frames)
 		const SINT32 eamp = env_amp(s);
 		UINT nseg = 0, c, k;
 		UINT32 w = s_samp, noise_hi = 0;
-		SINT32 sum = 0, y;
+		SINT32 sum = 0, y, ol = 0, orr = 0;
+		UINT active = 0;
 
 		/* the noise over this frame, as pieces of constant output */
 		for (;;) {
@@ -280,12 +285,52 @@ void ssg_render(void *ctx, SINT32 *lr, UINT frames)
 				const UINT32 t = tone_walk(s, c, s_samp);
 				hi = tone_on ? t : noise_on ? noise_hi : s_samp;
 			}
-			if (amp) sum += (SINT32)(((SINT64)share(hi) * amp + (1 << 23)) >> 24);
+			const SINT32 out = amp ? (SINT32)(((SINT64)share(hi) * amp + (1 << 23)) >> 24) : 0;
+			/* Orchestra: a pure tone becomes bowed strings at its pitch and level.  The generators above ran
+			 * exactly as before; only this channel's square wave leaves the mix. */
+			/* Hardware-envelope channels are plucks and buzzers, not lines: those stay square. */
+			const int replace = orch && tone_on && !noise_on && !(v & 0x10);
+			if (replace || s->orch[c].envelope) {
+				OrchestraSampleVoice *vo = &s->orch[c];
+				const UINT tp = ((s->reg[2 * c] | (s->reg[2 * c + 1] << 8)) & 0xfff) ? ((s->reg[2 * c] | (s->reg[2 * c + 1] << 8)) & 0xfff) : 1;
+				const SINT32 level = replace ? (amp >> 8) : 0;
+				const UINT old_tp = s->orch_tp[c];
+				/* a new note: sound after silence, or a pitch step beyond vibrato (about 3%) */
+				const int note = level && (!vo->was_key || !old_tp || tp * 100u > old_tp * 103u || tp * 103u < old_tp * 100u);
+				SINT32 vl = 0, vr = 0;
+				if (level) s->orch_tp[c] = (UINT16)tp;
+				if (note) s->orch_age[c] = 0;
+				orchestra_ssg_voice(vo, 2359296u / tp, level, note, &vl, &vr);	/* f = 124800 / TP Hz, as an FM increment */
+				if (vo->envelope) active = 1;
+				OrchestraMatch *m = &s->orch_match[c];
+				const SINT32 g = m->gain ? m->gain : 1024;
+				ol += (SINT32)((SINT64)vl * g / 1024);
+				orr += (SINT32)((SINT64)vr * g / 1024);
+				/* the native square's AC part against the strings, before gain */
+				orchestra_match_feed(m, replace && amp ? out - (amp >> 9) : 0, (vl + vr) / 2,
+				                     (vl < 0 ? -vl : vl) > (vr < 0 ? -vr : vr) ? (vl < 0 ? -vl : vl) : (vr < 0 ? -vr : vr));
+				/* The chip's own square sounds under the first 30 ms of a note and fades out: a short blip (a
+				 * message beep) stays a blip, and a held note gets a crisp start while the strings take over. */
+				if (replace) {
+					const UINT fade = s_rate_30ms;
+					if (s->orch_age[c] < fade) {
+						sum += (SINT32)((SINT64)(out - (amp >> 9)) * (fade - s->orch_age[c]) / fade);
+						s->orch_age[c]++;
+					}
+					continue;
+				}
+			}
+			sum += out;
+		}
+		s->orch_active = (UINT8)active;
+		if (++s->orch_tick >= 16) {
+			s->orch_tick = 0;
+			for (c = 0; c < 3; c++) orchestra_match_adjust(&s->orch_match[c], s->orch_match[c].npow);
 		}
 		s->y1 = ((sum - s->x1) << 12) + (SINT32)(((SINT64)s->y1 * s_hp_coef) / 65536);	/* Q12; the decay truncates toward zero, so a silence settles at exactly 0 */
 		s->x1 = sum;
 		y = s->y1 >> 12;
-		lr[0] += y;
-		lr[1] += y;
+		lr[0] += y + ol;
+		lr[1] += y + orr;
 	}
 }

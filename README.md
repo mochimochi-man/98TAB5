@@ -63,6 +63,14 @@ intended level of maturity, which limited the benefit of reading physical
 disks directly. An unresolved concern also led to the decision that continuing
 to provide this feature would be inappropriate.
 
+### Sound modes
+
+**FM Sound** offers **Original, Hall, Synthesizer (HVY), Orchestra (HVY)**, in that order; (HVY) marks the heavy ones.
+Synthesizer preserves the earlier procedural sound; Orchestra uses a compact
+CC0 acoustic sample bank with hall ambience. Warm has been removed.
+F12 also offers an 8/10 MHz Clock Family setting, applied on Reset.
+Sample credits are in [components/pc98core/sound/samples/](components/pc98core/sound/samples/).
+
 ## 2. Building
 
 ### (1) Build
@@ -102,7 +110,7 @@ For a new installation, write the merged image, which contains the bootloader,
 partition table, initial OTA data and application:
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.0.0-20261101.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.1.0-20261103.bin
 ```
 
 For an update with the same partition layout, write only the application to
