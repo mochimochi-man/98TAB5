@@ -62,7 +62,6 @@ extern "C" volatile int g_audio_under = 0;  // ring-empty events (crackle)
 //   4  Orchestra    compact acoustic sample replacement with ambience
 extern "C" void fm_orchestra_enable(int on);
 static volatile int s_fx = 0;
-static volatile uint32_t s_dsp_us, s_dsp_blocks, s_dsp_max_us;
 #define PRIME_MS 80
 #define HIGH_MS  150
 static size_t s_prime_bytes = 22050 * RING_FRAME * PRIME_MS / 1000;
@@ -344,16 +343,11 @@ static void audio_task(void *arg) {
                     frames--;
                 }
             }
-            const int64_t dsp_start = esp_timer_get_time();
             if (fx && s_fx_ready) {
                 fx_process((const int16_t *)rx, mix, frames, fx);
             } else {
                 mix_plain((const int16_t *)rx, mix, frames);
             }
-            const uint32_t dsp_us = (uint32_t)(esp_timer_get_time() - dsp_start);
-            s_dsp_us += dsp_us;
-            s_dsp_blocks++;
-            if (dsp_us > s_dsp_max_us) s_dsp_max_us = dsp_us;
             esp_codec_dev_write(s_spk, mix, frames * 4);
         }
         if (carry) {
@@ -515,13 +509,4 @@ extern "C" void audio_set_volume(int percent) {
 
 extern "C" int audio_get_volume(void) {
     return s_volume;
-}
-
-extern "C" volatile long long g_prof_snd_task;
-// On-demand counters; no recurring serial traffic in a normal build.
-extern "C" void audio_diagnostics(void) {
-    ets_printf("AUDIO_STATUS volume=%d fx=%d dsp_total_us=%u blocks=%u max_block_us=%u under=%d drops=%d publish_total_us=%llu publish_frames=%llu render_total_us=%llu\n",
-        s_volume, (int)s_fx, (unsigned)s_dsp_us, (unsigned)s_dsp_blocks,
-        (unsigned)s_dsp_max_us, (int)g_audio_under, (int)g_audio_drops,
-        (unsigned long long)g_prof_snd, (unsigned long long)g_prof_snd_n, (unsigned long long)g_prof_snd_task);
 }

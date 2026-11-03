@@ -79,7 +79,6 @@ extern "C" int g_backlight_pct = 100;
 extern "C" void lcd_lamps_tick(void);    // lcd_mipi.cpp
 extern "C" void lcd_lamps_enable(bool on);
 extern "C" int g_line200 = 0;
-extern "C" void audio_diagnostics(void);
 extern "C" void audio_set_fx(int mode);   // audio_codec.cpp
 
 extern "C" void line200_apply(int m) {
@@ -199,8 +198,6 @@ void remote_poll(void) {
                     ets_printf("%c", 10);
                 }
                 ets_printf("VID mode1 %02x mode2 %02x disp %u acc %u%c", g_vid.mode1, g_vid.mode2, (unsigned)g_vid.disp_page, (unsigned)g_vid.access_page, 10);
-                ets_printf("CLOCK cpu=%u timer=%u family=%u\n", (unsigned)g_mach.cpu_clock,
-                    (unsigned)g_mach.base_clock, g_mach.clk8mhz ? 8u : 10u);
             } else if (cmd[0] == 'V') {     // V: redraw the whole screen from VRAM; V1 only the composite, V2 only the expansion (test aid)
                 if (cmd[1] == '3') { g_vreq.text |= VR_ALL; ets_printf("OK V3%c", 10); continue; }
                 if (cmd[1] == '4') { g_vreq.grph[0] |= VR_ALL; g_vreq.grph[1] |= VR_ALL; ets_printf("OK V4%c", 10); continue; }
@@ -383,8 +380,6 @@ void remote_poll(void) {
                     }
                     ets_printf("HEND\n");
                 }
-            } else if (cmd[0] == 'A' && !cmd[1]) {
-                audio_diagnostics();
             } else if (cmd[0] == 'I') {
                 ets_printf("STATE cpu=%d fdd0=[%s] fdd1=[%s] hdd=[%s]\n", g_cpu_mode,
                            g_settings.fdd_image[0], g_settings.fdd_image[1], g_settings.hdd_image[0]);
