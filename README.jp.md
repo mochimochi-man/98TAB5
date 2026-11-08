@@ -58,7 +58,6 @@ CPU 判定には 286 として応答します。
 ### 音源モード
 
 **FM Sound** は **Original, Hall, Synthesizer (HVY), Orchestra (HVY)** の順です。Orchestraは小容量の実楽器サンプルに置き換えます。サンプルの出典は [components/pc98core/sound/samples/](components/pc98core/sound/samples/) にあります。
-F12のClock Familyで8MHz系／10MHz系を選択でき、Resetで適用します。
 
 ## 2. ビルド方法
 

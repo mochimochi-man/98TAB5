@@ -61,7 +61,6 @@ The machine identifies itself as a 286.
 ### Sound modes
 
 **FM Sound** offers **Original, Hall, Synthesizer (HVY), Orchestra (HVY)**, in that order. Orchestra replaces the instruments with a compact bank of real-instrument samples. Sample credits are in [components/pc98core/sound/samples/](components/pc98core/sound/samples/).
-F12 offers an 8 MHz / 10 MHz Clock Family setting, applied on Reset.
 
 ## 2. Building
 
