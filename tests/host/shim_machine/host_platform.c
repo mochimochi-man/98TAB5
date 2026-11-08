@@ -101,6 +101,7 @@ void lamp_fdd(REG8 drv){(void)drv;}
 void lamp_hdd(REG8 drv){(void)drv;}
 void host_fdd_access(UINT8 d){(void)d;}
 void host_hdd_access(UINT8 d){(void)d;}
+void host_cd_access(void){}
 /* a fixed clock keeps repeated runs bit-identical */
 UINT32 host_ms(void){return 0;}
 static UINT16 s_fb[640*480];

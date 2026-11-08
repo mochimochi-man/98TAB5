@@ -58,6 +58,7 @@ typedef struct Pc98Settings {
 	UINT8	fdd_144;		/* the 1.44 MB interface */
 	char	fdd_image[4][CFG_PATH_MAX];
 	char	hdd_image[2][CFG_PATH_MAX];
+	char	cd_image[CFG_PATH_MAX];	/* "" = no CD-ROM drive */
 	char	font_file[CFG_PATH_MAX];
 	char	rom_dir[CFG_PATH_MAX];
 } Pc98Settings;

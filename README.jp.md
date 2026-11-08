@@ -99,7 +99,7 @@ Windows なら `COMn` です。Tab5 の USB-C ポートは USB-Serial-JTAG と�
 アプリを含む結合イメージを書き込みます。
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.1.9-20261106.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.2.0-20261109.bin
 ```
 
 同じパーティション構成から更新する場合は、アプリ単体を書き込みます。

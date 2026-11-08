@@ -27,6 +27,7 @@ extern "C" {
 #include <pc98.h>
 #include <hostfile.h>
 #include "media/drives.h"
+#include "dev/atapi.h"
 #include "util/pcstr.h"
 #include "board_pins.h"
 int  ets_printf(const char *fmt, ...);
@@ -359,11 +360,12 @@ extern "C" void sd_unmount(void);           // sd_tab5.cpp: leave the card idle
 #define USB_MODE_IMAGE 2
 
 static const char *drv_label(int d) {
-    return d == 0 ? "FDD1" : d == 1 ? "FDD2" : "HDD ";
+    return d == 0 ? "FDD1" : d == 1 ? "FDD2" : d == 3 ? "CD-ROM" : "HDD ";
 }
 
 static const char *drv_current(int d) {
     if (d == 2) return g_settings.hdd_image[0][0] ? (const char *)g_settings.hdd_image[0] : "(empty)";
+    if (d == 3) return g_settings.cd_image[0] ? (const char *)g_settings.cd_image : "(empty)";
     return g_settings.fdd_image[d][0] ? (const char *)g_settings.fdd_image[d] : "(empty)";
 }
 
@@ -373,6 +375,8 @@ static int ext_match(const char *name, int drive) {
     char e[8]; int i = 0;
     for (const char *p = dot + 1; *p && i < 7; p++) e[i++] = tolower((uint8_t)*p);
     e[i] = 0;
+    if (drive == 3)
+        return !strcmp(e, "iso") || !strcmp(e, "cue");
     if (drive == 2)
         return !strcmp(e, "hdi") || !strcmp(e, "nhd") || !strcmp(e, "thd") || !strcmp(e, "vhd");
     return !strcmp(e, "nfd") || !strcmp(e, "d88") || !strcmp(e, "fdi") || !strcmp(e, "fdd") || !strcmp(e, "hdm") ||
@@ -412,14 +416,16 @@ static void draw_drives(int sel) {
     snprintf(font, sizeof(font), "%s", g_font_file[0] ? g_font_file : "Built-in");
     snprintf(bl, sizeof(bl), "%d%%", g_backlight_pct);
     snprintf(vol, sizeof(vol), "%d%%", audio_get_volume());
-    const char *d[3];
-    for (int i = 0; i < 3; i++) {
+    const char *d[4];
+    for (int i = 0; i < 4; i++) {
         const char *p = drv_current(i);
         d[i] = !strcmp(p, "(empty)") ? "Empty" : (p[0] == '/' ? p + 1 : p);
     }
-    const UiRow disks[4] = {
+    char cdv[CFG_PATH_MAX + 8];
+    snprintf(cdv, sizeof(cdv), "%s%s", d[3], (g_settings.cd_image[0] != 0) != (atapi_fitted() != 0) ? " (Reset)" : "");
+    const UiRow disks[5] = {
         { "FDD1", d[0], UI_ACTION, 0, 0 }, { "FDD2", d[1], UI_ACTION, 0, 0 }, { "HDD", d[2], UI_ACTION, 0, 0 },
-        { "Create New Disk", NULL, UI_ACTION, 0, 0 },
+        { "CD-ROM", cdv, UI_ACTION, 0, 0 }, { "Create New Disk", NULL, UI_ACTION, 0, 0 },
     };
     const UiRow sys[5] = {
         { "CPU Clock", clk, UI_ADJUST, 0, 0 }, { "Clock Family", family, UI_ADJUST, 0, 0 },
@@ -432,7 +438,7 @@ static void draw_drives(int sel) {
         { "200-Line Graphics", l200[(g_line200 >= 0 && g_line200 <= 2) ? g_line200 : 0], UI_ADJUST, 0, 0 },
         // A colouring for the sound on its way out (audio_codec.cpp).
         { "FM Sound", sfx[audio_get_fx()], UI_ADJUST, 0, 0 },
-        // The FDD1 / FDD2 / HDD lamps under the picture (lcd_mipi.cpp).
+        // The FDD1 / FDD2 / CD-ROM / HDD lamps under the picture (lcd_mipi.cpp).
         { "Drive Lamps", lcd_lamps_enabled() ? "On" : "Off", UI_ADJUST, 0, 0 },
     };
     // Screenshot shows the last file written, so the row itself is the confirmation. The readers reboot into the
@@ -446,14 +452,14 @@ static void draw_drives(int sel) {
     const int lx0 = UI_L, lx1 = 308, rx0 = 332, rx1 = UI_R;
     int y = 50;
     ui_section(lx0, lx1, y, "DISKS", NULL);
-    y = ui_group(lx0, lx1, y + 22, disks, 4, sel, 0) + 14;
+    y = ui_group(lx0, lx1, y + 22, disks, 5, sel, 0) + 14;
     ui_section(lx0, lx1, y, "SYSTEM", NULL);
-    ui_group(lx0, lx1, y + 22, sys, 5, sel - 4, 0);
+    ui_group(lx0, lx1, y + 22, sys, 5, sel - 5, 0);
     y = 50;
     ui_section(rx0, rx1, y, "DISPLAY & SOUND", NULL);
-    y = ui_group(rx0, rx1, y + 22, av, 5, sel - 9, 0) + 14;
+    y = ui_group(rx0, rx1, y + 22, av, 5, sel - 10, 0) + 14;
     ui_section(rx0, rx1, y, "TOOLS", NULL);
-    ui_group(rx0, rx1, y + 22, tools, 4, sel - 14, 0);
+    ui_group(rx0, rx1, y + 22, tools, 4, sel - 15, 0);
     static const UiKey keys[4] = {
         { UK_UPDOWN, NULL, "Select" }, { UK_LEFTRIGHT, NULL, "Change" }, { 0, "Enter", "OK" }, { 0, "Esc", "Close" },
     };
@@ -469,7 +475,8 @@ static int scan_images(int drive) {
     s_count = 0;
     // Inject the currently-mounted image first (belt-and-suspenders; de-duped
     // below) so a drive never shows "No Image" while an image is mounted.
-    const char *mnt = (drive == 2) ? (const char *)g_settings.hdd_image[0]
+    const char *mnt = (drive == 3) ? (const char *)g_settings.cd_image
+                    : (drive == 2) ? (const char *)g_settings.hdd_image[0]
                                    : (const char *)g_settings.fdd_image[drive];
     if (mnt && mnt[0]) {
         const char *mb = strrchr(mnt, '/'); mb = mb ? mb + 1 : mnt;
@@ -581,8 +588,9 @@ static void browse_rom(int which) {
 // SD images followed by the eject action. HDD eject reboots.
 static void draw_files(int drive, int sel, int top) {
     const char *f0 = (const char *)g_settings.fdd_image[0], *f1 = (const char *)g_settings.fdd_image[1];
-    const char *here = (drive == 2) ? (const char *)g_settings.hdd_image[0] : drive ? f1 : f0;
-    const char *other = (drive == 2) ? "" : drive ? f0 : f1;
+    const char *here = (drive == 3) ? (const char *)g_settings.cd_image
+                     : (drive == 2) ? (const char *)g_settings.hdd_image[0] : drive ? f1 : f0;
+    const char *other = (drive >= 2) ? "" : drive ? f0 : f1;
     if (top > s_count - VISIBLE) top = s_count > VISIBLE ? s_count - VISIBLE : 0;
     if (top < 0) top = 0;
     const int vis = s_count - top < VISIBLE ? s_count - top : VISIBLE;
@@ -590,7 +598,7 @@ static void draw_files(int drive, int sel, int top) {
     ui_header(drv_label(drive));
     char note[32];
     snprintf(note, sizeof(note), "%d on the SD card", s_count);
-    ui_section(UI_L, UI_R, 50, drive == 2 ? "HARD DISK IMAGES" : "DISK IMAGES", note);
+    ui_section(UI_L, UI_R, 50, drive == 3 ? "CD-ROM IMAGES" : drive == 2 ? "HARD DISK IMAGES" : "DISK IMAGES", note);
     int y = 72;
     if (vis > 0) {
         UiRow rows[VISIBLE];
@@ -620,7 +628,11 @@ static void draw_files(int drive, int sel, int top) {
 }
 
 static void apply_image(int drive, const char *path) {
-    if (drive == 2) {
+    if (drive == 3) {
+        // A disc goes in or out at once when the drive is fitted; otherwise the drive comes with the next reset.
+        pcs_copy(g_settings.cd_image, path ? path : "", sizeof(g_settings.cd_image));
+        if (atapi_fitted()) atapi_insert(path);
+    } else if (drive == 2) {
         // The HDD interfaces open g_settings.hdd_image[0] at the next reset (dev/sasi_bind.c).
         pcs_copy(g_settings.hdd_image[0], path ? path : "", sizeof(g_settings.hdd_image[0]));
     } else if (path && fdd_ext_is(path)) {
@@ -918,6 +930,7 @@ static void save_settings(void) {
             nvs_set_str(nh, "fdd0", (const char *)g_settings.fdd_image[0]);
             nvs_set_str(nh, "fdd1", (const char *)g_settings.fdd_image[1]);
             nvs_set_str(nh, "hdd",  (const char *)g_settings.hdd_image[0]);
+            nvs_set_str(nh, "cd",   (const char *)g_settings.cd_image);
         }
         nvs_commit(nh);
         nvs_close(nh);
@@ -988,75 +1001,75 @@ extern "C" void menu_disk_run(void) {
         if (!menu_key_pop(&nk, &dn)) { vTaskDelay(pdMS_TO_TICKS(20)); continue; }
         if (!dn) continue;
         if (nk == NK_ESC) break;
-        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 17;
-        if (key_is_down(nk)) sel = (sel < 17) ? sel + 1 : 0;
+        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 18;
+        if (key_is_down(nk)) sel = (sel < 18) ? sel + 1 : 0;
         // Left/right adjust the rows that hold a value rather than doing
         // something; everywhere else they are ignored.
         {
             const int dir = key_is_right(nk) ? 1 : (key_is_left(nk) ? -1 : 0);
             if (dir) {
-                if (sel == 9) {
+                if (sel == 10) {
                     g_backlight_pct = level_step(g_backlight_pct, dir, false);
                     tab5_backlight_set(g_backlight_pct);
-                } else if (sel == 10) {
-                    audio_set_volume(level_step(audio_get_volume(), dir, false, 0));
                 } else if (sel == 11) {
+                    audio_set_volume(level_step(audio_get_volume(), dir, false, 0));
+                } else if (sel == 12) {
                     const int m = g_line200 + dir;
                     if (m >= 0 && m <= 2) {
                         line200_apply(m);
                         line200_refresh();
                     }
-                } else if (sel == 13) {
+                } else if (sel == 14) {
                     lcd_lamps_enable(dir > 0);
-                } else if (sel == 12) {
+                } else if (sel == 13) {
                     audio_set_fx(sound_step(audio_get_fx(),dir,false));
-                } else if (sel == 4) {
+                } else if (sel == 5) {
                     const UINT mult = clock_step(g_settings.clock_mul, dir, false);
                     g_settings.clock_mul = mult;       // display follows immediately
                     g_speed_req = (int)mult;      // emulator loop applies it
-                } else if (sel == 5) {
-                    g_settings.base_clock = dir > 0 ? CLK_BASE5 : CLK_BASE8;
                 } else if (sel == 6) {
+                    g_settings.base_clock = dir > 0 ? CLK_BASE5 : CLK_BASE8;
+                } else if (sel == 7) {
                     g_cpu_mode = cpu_step(g_cpu_mode, dir, false);
                 }
             }
         }
         if (nk == NK_RET) {
-            if (sel == 3) {                     // create blank disk image
+            if (sel == 4) {                     // create blank disk image
                 newdisk_flow();
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 4) {              // CPU clock: next, wrapping
+            } else if (sel == 5) {              // CPU clock: next, wrapping
                 const UINT mult = clock_step(g_settings.clock_mul, 1, true);
                 g_settings.clock_mul = mult;         // display follows immediately
                 g_speed_req = (int)mult;        // emulator loop applies it
-            } else if (sel == 5) {              // oscillator family: applies on reset
+            } else if (sel == 6) {              // oscillator family: applies on reset
                 g_settings.base_clock = g_settings.base_clock == CLK_BASE8 ? CLK_BASE5 : CLK_BASE8;
-            } else if (sel == 6) {              // CPU: next, wrapping
+            } else if (sel == 7) {              // CPU: next, wrapping
                 g_cpu_mode = cpu_step(g_cpu_mode, 1, true);
-            } else if (sel == 7) {              // BIOS ROM: pick a file from the SD
+            } else if (sel == 8) {              // BIOS ROM: pick a file from the SD
                 browse_rom(0);
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 8) {              // FONT ROM: pick a file from the SD
+            } else if (sel == 9) {              // FONT ROM: pick a file from the SD
                 browse_rom(1);
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 9) {              // Backlight: next, wrapping
+            } else if (sel == 10) {              // Backlight: next, wrapping
                 g_backlight_pct = level_step(g_backlight_pct, 1, true);
                 tab5_backlight_set(g_backlight_pct);
-            } else if (sel == 10) {              // Volume: next, wrapping
+            } else if (sel == 11) {              // Volume: next, wrapping
                 audio_set_volume(level_step(audio_get_volume(), 1, true, 0));
-            } else if (sel == 11) {              // 200-line graphics: next, wrapping
+            } else if (sel == 12) {              // 200-line graphics: next, wrapping
                 line200_apply((g_line200 + 1) % 3);
                 line200_refresh();
-            } else if (sel == 12) {              // Sound: next, wrapping
+            } else if (sel == 13) {              // Sound: next, wrapping
                 audio_set_fx(sound_step(audio_get_fx(),1,true));
-            } else if (sel == 13) {              // Drive lamps: on/off
+            } else if (sel == 14) {              // Drive lamps: on/off
                 lcd_lamps_enable(!lcd_lamps_enabled());
-            } else if (sel == 14) {              // Screenshot
+            } else if (sel == 15) {              // Screenshot
                 if (!screenshot_save(s_last_shot, sizeof(s_last_shot))) {
                     snprintf(s_last_shot, sizeof(s_last_shot), "FAILED");
                 }
-            } else if (sel == 15 || sel == 16) {   // USB Mode: arm the flag, reboot
-                const int m = (sel == 15) ? USB_MODE_SD : USB_MODE_IMAGE;
+            } else if (sel == 16 || sel == 17) {   // USB Mode: arm the flag, reboot
+                const int m = (sel == 16) ? USB_MODE_SD : USB_MODE_IMAGE;
                 if (m == USB_MODE_IMAGE && choose_image_drive() < 0) {
                     lcd_menu_clear();   // back to the menu
                     draw_drives(sel);
@@ -1083,13 +1096,13 @@ extern "C" void menu_disk_run(void) {
                 sd_unmount();
                 panel_tab5_blank_early();
                 esp_restart();
-            } else if (sel == 17) {             // RESET: persist the settings, reboot
+            } else if (sel == 18) {             // RESET: persist the settings, reboot
                 save_settings();
                 sd_unmount();                   // same reason as USB Mode above
                 panel_tab5_blank_early();
                 esp_restart();
             } else {
-                browse(sel);                    // sel 0/1/2 = FDD1/FDD2/HDD
+                browse(sel);                    // sel 0/1/2/3 = FDD1/FDD2/HDD/CD-ROM
                 lcd_menu_clear();   // the submenu owned the screen
             }
         }

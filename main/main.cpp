@@ -534,6 +534,10 @@ static void emu_task(void *arg) {
                 lcd_lamps_enable(v != 0);
             size_t len;
             len = sizeof(saved_hdd);
+            {   // the CD-ROM image: the drive is fitted while one is chosen and still on the card
+                size_t cl = sizeof(g_settings.cd_image);
+                if (nvs_get_str(nh, "cd", g_settings.cd_image, &cl) != ESP_OK || !sd_file_exists(g_settings.cd_image)) g_settings.cd_image[0] = 0;
+            }
             if (nvs_get_str(nh, "hdd",  saved_hdd,  &len) == ESP_OK) have_nvs_disks = true;
             len = sizeof(saved_fdd0);
             if (nvs_get_str(nh, "fdd0", saved_fdd0, &len) == ESP_OK) have_nvs_disks = true;

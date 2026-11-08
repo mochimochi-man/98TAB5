@@ -56,6 +56,7 @@
  */
 #include <string.h>
 #include "sasi.h"
+#include "../include/host.h"
 
 #ifdef ESP_PLATFORM
 #include "esp_attr.h"
@@ -223,6 +224,7 @@ static uint8_t fill_chunk(void)
 {
 	uint32_t n = s.left < CHUNK ? s.left : CHUNK;
 
+	host_hdd_access(s.unit);
 	if (hm_read(s.disk[s.unit], s.lba, s_buf, n) != HM_OK) return 0x11;
 	s.chunk = n;
 	s.pos = 0;
@@ -231,7 +233,10 @@ static uint8_t fill_chunk(void)
 
 static uint8_t flush_chunk(void)
 {
-	int r = hm_write(s.disk[s.unit], s.lba, s_buf, s.chunk);
+	int r;
+
+	host_hdd_access(s.unit);
+	r = hm_write(s.disk[s.unit], s.lba, s_buf, s.chunk);
 
 	return r == HM_OK ? 0 : 0x03;
 }

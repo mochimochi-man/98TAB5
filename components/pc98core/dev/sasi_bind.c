@@ -29,6 +29,7 @@
 
 #include "sasi.h"
 #include "ide.h"
+#include "atapi.h"
 
 #include "esp_attr.h"
 extern int ets_printf(const char *fmt, ...);
@@ -134,6 +135,14 @@ void ide_reset(const Pc98Settings *pConfig)
 	(void)pConfig;
 	ide_machine_reset();
 	ide_irq_hook = irq9;
+	{	/* the drive is fitted while a disc image is chosen; a new one goes in without a reset */
+		const char *cd = (const char *)g_settings.cd_image;
+
+		atapi_fit(cd[0] != 0);
+		if (cd[0] && strcmp(atapi_disc(), cd) != 0) atapi_insert(cd);
+	}
+	atapi_reset();
+	atapi_irq_hook = irq9;
 }
 
 static void oide(UINT port, REG8 dat) { ide_out(port, dat); }
@@ -145,7 +154,7 @@ void ide_bind(void)
 				      0x64a, 0x64c, 0x64e, 0x74c, 0x74e };
 	unsigned k;
 
-	if (!ide_disk(0) && !ide_disk(1)) return;
+	if (!ide_disk(0) && !ide_disk(1) && !atapi_fitted()) return;
 	for (k = 0; k < sizeof(ports) / sizeof(ports[0]); k++) {
 		io_port(ports[k], oide, NULL);
 		io_port(ports[k], NULL, iide);

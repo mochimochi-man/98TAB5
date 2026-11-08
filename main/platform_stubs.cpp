@@ -95,8 +95,10 @@ int host_date(HostDate *d) {
 UINT32 host_ms(void) { return (UINT32)(esp_timer_get_time() / 1000); }
 void lamp_fdd(REG8 drv);   // lcd_mipi.cpp: the drive lamps
 void lamp_hdd(REG8 drv);
+void lamp_cd(void);
 void host_fdd_access(UINT8 drv) { lamp_fdd(drv); }
 void host_hdd_access(UINT8 drv) { lamp_hdd(drv); }
+void host_cd_access(void) { lamp_cd(); }
 
 // ================= sound =================
 

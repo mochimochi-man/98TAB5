@@ -36,6 +36,7 @@ UINT8	host_joypad(void);
 /* drive activity, for the lamps */
 void	host_fdd_access(UINT8 drv);
 void	host_hdd_access(UINT8 drv);
+void	host_cd_access(void);
 
 #ifdef __cplusplus
 }

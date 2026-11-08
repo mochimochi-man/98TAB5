@@ -412,13 +412,14 @@ extern "C" bool lcd_init(void) {
 }
 
 // ---- access lamps -----------------------------------------------------------
-// FDD1, FDD2 and HDD, as the machine's front panel has them: small rectangles
-// in the margin under the picture, red for the floppies and green for the
-// hard disk. The core reports each access through
-// host_fdd_access / host_hdd_access (pc98.h); a lamp stays lit for a
+// FDD1, FDD2, CD-ROM and HDD: small rectangles in the margin under the
+// picture, red for the floppies, yellow for the CD-ROM and green for the
+// hard disk. The core reports each access through host_fdd_access /
+// host_cd_access / host_hdd_access (host.h); a lamp stays lit for a
 // moment after the last one, so a single sector read is still seen to flash.
 #define LAMP_HOLD_US 80000
-static volatile int64_t s_lamp_at[3];
+#define LAMPS 4
+static volatile int64_t s_lamp_at[LAMPS];   // FDD1, FDD2, CD-ROM, HDD
 static int  s_lamp_drawn = -1;          // lamps last painted, -1 = nothing there
 
 extern "C" void lamp_fdd(REG8 drv) {
@@ -427,9 +428,13 @@ extern "C" void lamp_fdd(REG8 drv) {
     }
 }
 
+extern "C" void lamp_cd(void) {
+    s_lamp_at[2] = esp_timer_get_time();
+}
+
 extern "C" void lamp_hdd(REG8 drv) {
     (void)drv;
-    s_lamp_at[2] = esp_timer_get_time();
+    s_lamp_at[3] = esp_timer_get_time();
 }
 
 // A rectangle in screen coordinates as the picture is seen - x 0..1279 left to
@@ -460,7 +465,7 @@ extern "C" bool lcd_lamps_enabled(void) {
 }
 
 // Once a frame, from the emulator loop: repaint the lamps that changed. They
-// sit in a row under the picture, FDD1 FDD2 HDD from the left, the row's right
+// sit in a row under the picture, FDD1 FDD2 CD-ROM HDD from the left, the row's right
 // end under the picture's right edge - wherever the scale mode puts it.
 extern "C" void lcd_lamps_tick(void) {
     if (!s_fb) {
@@ -468,7 +473,7 @@ extern "C" void lcd_lamps_tick(void) {
     }
     const int64_t now = esp_timer_get_time();
     int on = 0;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < LAMPS; i++) {
         if (s_lamp_at[i] && now - s_lamp_at[i] < LAMP_HOLD_US) {
             on |= 1 << i;
         }
@@ -485,19 +490,19 @@ extern "C" void lcd_lamps_tick(void) {
     const int pic_h = PC98_H * num / den;
     const int right = (PAN_H + pic_w) / 2;              // just past the picture
     const int below = (PAN_W + pic_h) / 2;
-    const int lx0 = right - (3 * LAMP_W + 2 * LAMP_GAP);
+    const int lx0 = right - (LAMPS * LAMP_W + (LAMPS - 1) * LAMP_GAP);
     int ly0 = below + 2;
     if (ly0 + LAMP_H > PAN_W) {
         ly0 = PAN_W - LAMP_H;
     }
-    static const uint16_t lit[3] = {0xF800, 0xF800, 0x07E0};   // red, red, green
-    static const uint16_t dark[3] = {0x3000, 0x3000, 0x0180};
-    for (int i = 0; i < 3; i++) {
+    static const uint16_t lit[LAMPS] = {0xF800, 0xF800, 0xFFE0, 0x07E0};   // red, red, yellow, green
+    static const uint16_t dark[LAMPS] = {0x3000, 0x3000, 0x3180, 0x0180};
+    for (int i = 0; i < LAMPS; i++) {
         const uint16_t c = (on < 0) ? 0x0000 : (on & (1 << i)) ? lit[i] : dark[i];
         lamp_rect(lx0 + i * (LAMP_W + LAMP_GAP), ly0, LAMP_W, LAMP_H, c);
     }
     // The lamps' panel rows, written back for the scanout.
-    const int span = 3 * LAMP_W + 2 * LAMP_GAP;
+    const int span = LAMPS * LAMP_W + (LAMPS - 1) * LAMP_GAP;
     const int y0 = FLIP_H ? (PAN_H - lx0 - span) : lx0;
     esp_cache_msync(s_fb + (size_t)y0 * PAN_W, (size_t)span * PAN_W * sizeof(uint16_t),
                     ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);

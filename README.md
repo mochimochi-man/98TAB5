@@ -102,7 +102,7 @@ For a new installation, write the merged image, which contains the bootloader,
 partition table, initial OTA data and application:
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.1.9-20261106.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.2.0-20261109.bin
 ```
 
 For an update with the same partition layout, write only the application to

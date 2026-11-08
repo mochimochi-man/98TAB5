@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ide.h"
+#include "atapi.h"
+#include "../include/host.h"
 
 #ifdef IDE_DIAG
 extern int ets_printf(const char *fmt, ...);
@@ -69,8 +71,9 @@ void (*ide_irq_hook)(void);
 
 static drive_t *cur(void) { return &s.drv[(s.dh & DH_DRV) ? 1 : 0]; }
 static int present(const drive_t *dr) { return dr->d != NULL; }
-/* The controller answers only for bank 0 (the primary channel). */
+/* Bank 0 is the hard disk channel; bank 1 is the CD-ROM drive's (atapi.c), when one is fitted. */
 static int channel_on(void) { return (s.bank[1] & 0x7f) == 0; }
+static int cd_channel(void) { return (s.bank[1] & 0x7f) == 1 && atapi_fitted(); }
 
 int ide_accepts(const hm_disk_t *d) { return d && hm_ata_ok(d); }
 
@@ -214,6 +217,7 @@ static void read_block(drive_t *dr)
 	uint32_t n = s.rem < s.blk ? s.rem : s.blk, i, lba;
 	int e;
 
+	host_hdd_access((UINT8)(dr == &s.drv[1]));
 	for (i = 0; i < n; i++) {
 		e = resolve(dr, &lba);
 		if (e) { fail(dr, (uint8_t)e); return; }
@@ -262,6 +266,7 @@ static void write_block(drive_t *dr)
 	uint32_t i, lba;
 	int e;
 
+	host_hdd_access((UINT8)(dr == &s.drv[1]));
 	for (i = 0; i < s.blkn; i++) {
 		e = resolve(dr, &lba);
 		if (e) { fail(dr, (uint8_t)e); return; }
@@ -539,6 +544,7 @@ void ide_out(uint32_t port, uint8_t v)
 	case 0x74e:
 		return;
 	}
+	if (cd_channel()) { atapi_out(port, v); return; }
 	if (!channel_on()) return;
 	switch (port) {
 	case 0x640: case 0x641: data_out(v); break;
@@ -581,6 +587,7 @@ uint8_t ide_in(uint32_t port)
 	case 0x435:
 		return 0x00;
 	}
+	if (cd_channel()) return atapi_in(port);
 	if (!channel_on()) return 0xff;
 	switch (port) {
 	case 0x640: case 0x641: return data_in();
