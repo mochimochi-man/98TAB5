@@ -2,6 +2,8 @@
 
 ![98TAB5](cover.png)
 
+![98TAB5 menu](98TAB5_menu.png)
+
 A **PC-9801 emulator for the M5Stack Tab5**. Of the outside sources that its
 predecessor, np2 TAB5, contained, everything except the font has been dropped,
 and the emulator itself (the CPU and the devices) has been written anew.
