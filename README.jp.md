@@ -137,8 +137,11 @@ esptool --chip esp32p4 -p <PORT> erase-region 0x9000 0x5000
 
 **F11 / F12 / Pause** のいずれかで内蔵メニューが開きます。
 
-FDD1 / FDD2 / HDD に任意のディスクイメージを指定し、**Reset** でメニューを抜けると、
+FDD1 / FDD2 / CD-ROM / HDD に任意のディスクイメージを指定し、**Reset** でメニューを抜けると、
 指定したディスクイメージをマウントして再起動します。
+
+CD-ROM には CD イメージ（`.ISO` または `.CUE`）を指定できます。DOS から使うには、
+`tools/cd98` の `CD98.SYS` と `CDEX98.COM`（または MSCDEX）を組み込んでください。
 
 実機から吸い出した `BIOS.ROM` や `FONT.ROM` がある場合は、microSD のルートに置いて
 メニューで指定してください。内蔵 ROM より優先されます。

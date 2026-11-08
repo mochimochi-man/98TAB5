@@ -140,8 +140,11 @@ compatible simple BIOS starts.
 
 **F11, F12 or Pause** opens the built-in menu.
 
-Choose disk images for FDD1 / FDD2 / HDD and leave the menu with **Reset**: the
+Choose disk images for FDD1 / FDD2 / CD-ROM / HDD and leave the menu with **Reset**: the
 machine restarts with those images mounted.
+
+CD-ROM takes a CD image (`.ISO` or `.CUE`). To use it from DOS, load `CD98.SYS` and
+`CDEX98.COM` (or MSCDEX) from `tools/cd98`.
 
 If you have a `BIOS.ROM` or `FONT.ROM` dumped from real hardware, put it in the
 root of the microSD card and select it in the menu. It takes precedence over the
