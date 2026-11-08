@@ -20,6 +20,8 @@ int drv_fd_mount(int drv, const char *path);
 /* Take the disk out now and put `path` in about 0.4 s later, as a hand swapping disks does: DOS only
  * reads a drive again after it has seen it go not-ready.  path NULL / "" = just eject. */
 void drv_fd_swap(int drv, const char *path);
+void drv_fd_set_external(int drv, fm_disk_t *d, void (*on_eject)(int drv));
+void drv_fd_door(int drv, int open);
 void drv_fd_eject(int drv);
 /* Once per emulated frame: finishes a pending swap. */
 void drv_fd_tick(void);

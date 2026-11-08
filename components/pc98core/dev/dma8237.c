@@ -96,16 +96,13 @@ static void step_address(Channel *c)
 	}
 }
 
-void dma_cycle(void)
+static void cycle_ch(UINT n)
 {
-	UINT n;
+	Channel *c = &s_ch[n];
+	const UINT8 bit = (UINT8)(1u << n);
+	int last;
 
-	for (n = 0; n < 4; n++) {
-		Channel *c = &s_ch[n];
-		const UINT8 bit = (UINT8)(1u << n);
-		int last;
-
-		if (!(g_dma_active & bit)) continue;
+	{
 		last = (c->count == 0);
 		if (last) c->dev->tc();
 		switch (c->mode & 0x0c) {
@@ -133,6 +130,26 @@ void dma_cycle(void)
 			}
 		}
 	}
+}
+
+void dma_cycle(void)
+{
+	UINT n;
+
+	for (n = 0; n < 4; n++) {
+		if (g_dma_active & (1u << n)) cycle_ch(n);
+	}
+}
+
+/* One byte on channel ch now, as the CPU loop would move it after the next instruction; 0 when the channel would not
+ * take it (the controller off or the channel masked). A device whose bytes come faster than the CPU loop is worth
+ * leaving for hands them over this way, several at a time. */
+int dma_burst_byte(UINT ch)
+{
+	ch &= 3;
+	if ((s_command & 0x04) || (s_mask & (1u << ch))) return 0;
+	cycle_ch(ch);
+	return 1;
 }
 
 UINT32 dma_address(UINT ch) { return phys(&s_ch[ch & 3]); }

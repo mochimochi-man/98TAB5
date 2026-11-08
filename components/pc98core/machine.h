@@ -22,8 +22,6 @@
 extern "C" {
 #endif
 extern int g_pc98_draw_enabled;
-extern volatile long long g_prof_loop, g_prof_cb, g_prof_snd;
-extern volatile long long g_prof_snd_n, g_prof_draw;
 #ifdef __cplusplus
 }
 #endif

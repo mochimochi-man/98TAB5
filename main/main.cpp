@@ -6,13 +6,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-static volatile int g_turbo;            // T 1 / T 0: flat out (test aid, see below)
-static volatile long long g_emu_ms;     // E: emulated time in ms
 #include "esp_heap_caps.h"
 #include "esp_attr.h"
 #include "esp_psram.h"
 #include "esp_timer.h"
 #include "esp_private/esp_clk.h"
+#include "esp_log.h"
+#include "esp_rom_sys.h"
 
 extern "C" int ets_printf(const char *fmt, ...);
 #include "esp_heap_caps.h"
@@ -37,6 +37,10 @@ extern "C" {
 #include "dev/sasi.h"
 #include "dev/ide.h"
 uint8_t *pc98_framebuffer(void);   // from platform_stubs.cpp
+bool fdd_ext_is(const char *name);
+bool fdd_ext_mount(int drv, const char *path);
+void fdd_ext_started(void);
+void fdd_ext_tick(void);
 bool pc98_framebuffer_init(void);      // pre-allocate the framebuffer (PSRAM) before machine_init
 extern int g_pc98_draw_enabled;    // g_mach.c: screen-render gate (off during boot)
 bool lcd_init(void);               // lcd_st7789.cpp: ST7789 on HSPI
@@ -95,49 +99,25 @@ extern "C" int g_cpu_mode = 2;
 extern "C" int g_cpu_mode_boot = 2;
 extern "C" void hid_mouse_delta(int dx, int dy, uint8_t buttons); // usb_kbd.cpp
 
-#if defined(PC98_NEWCPU) && PC98_NEWCPU == 1
-extern "C" void pc98_adapt_prof(unsigned long long *ins, unsigned *runs, unsigned *slow);
-#endif
-extern "C" volatile unsigned long long g_prof_cpu_cyc, g_prof_cpu_clk, g_prof_cpu_ins;   // machine.c
-extern "C" volatile unsigned long long g_prof_grph, g_prof_text, g_prof_comp;   // render.c
-extern "C" volatile long long g_prof_snd;   // machine.c (us)
 
 extern "C" void hid_kbd_report(int src, const uint8_t *d, int len);
-extern "C" void pc98_cpubench(void);
 extern volatile int g_speed_req;
-#ifdef PC98_PROF
-extern "C" void pc98_prof_dump(void);
-extern "C" void pc98_prof_reset(void);
-#endif
 extern volatile int g_menu_req;
 extern "C" void sd_unmount(void);
 void usb_msc_run(int mode);        // usb_msc.cpp: USB mass storage (never returns)
 int  usb_kbd_pop(uint8_t *nkey, uint8_t *down);  // drain one key event
 extern volatile int g_menu_req;      // usb_kbd.cpp: Pause/Break -> disk swap menu
 extern volatile int g_speed_req;     // menu_disk.cpp: CPU clock row -> new multiple
-// 7c-0 diag counters (usb_kbd.cpp) and the heartbeat that prints them.
-extern volatile uint32_t g_kd_rep[2], g_kd_nz[2], g_kd_menuset, g_kd_short, g_kd_conn, g_kd_disc, g_kd_xferr, g_kd_restart;
-extern volatile uint8_t  g_kd_last[8];
-static volatile uint32_t g_kd_menuopen;
-static volatile unsigned long long g_prof_bw;
-static volatile unsigned g_c_render, g_c_dskip, g_c_ev4, g_c_gap[4]; static volatile int g_debt_min = 0;
-extern "C" volatile unsigned g_prof_dn, g_prof_dmax, g_prof_vsync, g_prof_flip; extern "C" volatile unsigned long long g_prof_dsum;
 extern "C" int lcd_post_composite(void (*fn)(const void *), const void *arg);
 extern "C" bool lcd_comp_busy(void);
 extern "C" int lcd_pending(void);
 extern "C" int lcd_take_job_flag(void);
 extern "C" int (*g_comp_async)(void (*fn)(const void *), const void *arg);
-extern "C" volatile unsigned long long g_prof_comp0, g_prof_bt, g_prof_bn, g_prof_rows, g_prof_cframes, g_prof_k15, g_prof_l200;
 extern "C" void hid_kbd_report(int src, const uint8_t *d, int len);
 void menu_disk_run(void);            // menu_disk.cpp: modal disk UI (pauses emulation)
 extern uint8_t mem[];              // core main RAM; text VRAM at 0xA0000
 bool audio_init(int rate, int maxframes);        // audio_i2s.cpp: I2S DAC output
 void audio_write_s32(const int32_t *pcm, const int32_t *dry, int frames);
-void audio_peak_report(void);
-extern volatile int g_audio_peak;  // audio_i2s.cpp: max |sample| (>32767 = clipping)
-extern volatile int g_audio_drops; // audio_i2s.cpp: frames dropped (ring overflow)
-extern volatile int g_audio_under; // audio_i2s.cpp: ring-empty events (DAC underrun)
-extern volatile long long g_prof_loop, g_prof_cb, g_prof_snd, g_prof_draw; // g_mach.c phases (diag)
 }
 
 // ---- FM sound (milestone ④, PC-9801-26K / YM2203) ----
@@ -161,8 +141,6 @@ static int g_fm_frames = 0;        // stereo frames per snd_take block
 static TaskHandle_t      s_snd_task;
 static SemaphoreHandle_t s_snd_mux;
 static volatile int32_t  s_snd_owed;            // samples owed (rate-matched drain; may go negative)
-extern "C" volatile long long g_prof_snd_task;  // us spent rendering on core 0
-volatile long long g_prof_snd_task;
 
 static void snd_lock_fn(int lock) {
     if (lock) xSemaphoreTakeRecursive(s_snd_mux, portMAX_DELAY);
@@ -178,7 +156,6 @@ static void snd_task(void *arg) {
     (void)arg;
     for (;;) {
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
-        const int64_t t0 = esp_timer_get_time();
         snd_lock_fn(1);
         snd_service();
         // ...and also whenever the chips have rendered more than a block ahead of the count (their 22050 Hz is a
@@ -193,7 +170,6 @@ static void snd_task(void *arg) {
             __atomic_sub_fetch(&s_snd_owed, g_fm_frames, __ATOMIC_ACQ_REL);
         }
         snd_lock_fn(0);
-        g_prof_snd_task += esp_timer_get_time() - t0;
     }
 }
 
@@ -209,10 +185,6 @@ static void snd_task_start(void) {
 }
 #endif
 
-// ---- periodic perf/diag serial log (every 300 frames) ----
-// ets_printf writes to the UART synchronously from the emulator core, so this
-// steady output costs latency. Keep OFF for normal builds; flip to 1 to measure.
-#define DEBUG_PERF_LOG  0
 
 
 // ---- real-time pacing (throttle) ----
@@ -263,24 +235,6 @@ static void render_boot_text(uint8_t *fb) {
     }
 }
 
-// Dump PC-98 text VRAM (80x25, 2 bytes/char at 0xA0000) as ASCII — the reliable
-// "did DOS boot?" signal (independent of the LCD path).
-static void dump_text_vram(void) {
-    printf("---- text VRAM (80x25) ----\n");
-    for (int row = 0; row < 25; row++) {
-        char line[81];
-        int nonblank = 0;
-        for (int col = 0; col < 80; col++) {
-            uint8_t c = mem[0xA0000 + (row * 80 + col) * 2];
-            if (c >= 0x20 && c < 0x7f) { line[col] = (char)c; nonblank = 1; }
-            else line[col] = ' ';
-        }
-        line[80] = 0;
-        if (nonblank) printf("|%s|\n", line);
-    }
-    printf("---------------------------\n");
-}
-
 // SD wiring — Anemoia config.h (ESP32-S3, FSPI)
 static const int SD_CS = 4, SD_SCK = 5, SD_MISO = 6, SD_MOSI = 7;
 
@@ -307,6 +261,9 @@ static bool sd_file_exists(const char *path) {
 
 static void emu_task(void *arg);
 extern "C" bool sd_mount(void);
+// The card answered at boot. Without it the menu must not store the ROM and disk names: they read as missing
+// and would be saved as empty, so the next boot with the card back would lose them.
+bool g_sd_ok = false;
 
 
        // sd_tab5.cpp: SDMMC via the BSP, mounted at /sd
@@ -338,11 +295,15 @@ extern "C" void *emu_stack_borrow(size_t *len) {
 }
 static StaticTask_t emu_tcb;
 
-extern "C" void hpm_probe(void);
+// Nothing is printed on the serial console: a message the PC is not reading can hold up the core that writes it.
+static void console_null_putc(char c) { (void)c; }
+
 extern "C" void app_main(void) {
-#ifdef PC98_HPMPROBE
-    hpm_probe();
-#endif
+    esp_log_level_set("*", ESP_LOG_NONE);
+    esp_rom_install_channel_putc(1, console_null_putc);
+    esp_rom_install_channel_putc(2, console_null_putc);
+    freopen("/dev/null", "w", stdout);
+    freopen("/dev/null", "w", stderr);
     // No I2S pins to hold down at reset here: the speaker sits behind a codec
     // whose enable is on an I/O expander, and the BSP leaves it off until
     // bsp_audio_codec_speaker_init(). The S3 boards had a bare amplifier
@@ -409,7 +370,7 @@ static void emu_task(void *arg) {
     printf("LCD init: %s\n", lcd_init() ? "OK" : "FAIL");
 
     // --- SD (SDMMC 1-bit via BSP: CLK2/CMD1/D0=42/D3=EXIO4, mounted at /sd) ---
-    sd_mount();
+    g_sd_ok = sd_mount();
 
     // If the last boot went into USB Mode and came back, say how far it got and
     // write it to the card. After sd_mount() because of the file, and the file
@@ -657,10 +618,14 @@ static void emu_task(void *arg) {
     //     Mount each saved floppy whose file exists; with no NVS disk data both
     //     drives stay empty and the BIOS drops to N88-BASIC. ---
     if (have_nvs_disks) {
-        if (saved_fdd0[0] && sd_file_exists(saved_fdd0)) {
+        if (saved_fdd0[0] && sd_file_exists(saved_fdd0) && fdd_ext_is(saved_fdd0)) {
+            fdd_ext_mount(0, saved_fdd0);
+        } else if (saved_fdd0[0] && sd_file_exists(saved_fdd0)) {
             if (drv_fd_mount(0, saved_fdd0) == 0) pcs_copy(g_settings.fdd_image[0], saved_fdd0, sizeof(g_settings.fdd_image[0]));
         }
-        if (saved_fdd1[0] && sd_file_exists(saved_fdd1)) {
+        if (saved_fdd1[0] && sd_file_exists(saved_fdd1) && fdd_ext_is(saved_fdd1)) {
+            fdd_ext_mount(1, saved_fdd1);
+        } else if (saved_fdd1[0] && sd_file_exists(saved_fdd1)) {
             if (drv_fd_mount(1, saved_fdd1) == 0) pcs_copy(g_settings.fdd_image[1], saved_fdd1, sizeof(g_settings.fdd_image[1]));
         }
     }
@@ -678,6 +643,7 @@ static void emu_task(void *arg) {
            (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL),
            (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
     banner("running");
+    fdd_ext_started();
 
     printf("free after reset: internal=%u psram=%u largest_psram=%u\n",
            (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
@@ -701,7 +667,6 @@ static void emu_task(void *arg) {
 
     // --- run the machine continuously; render + push to the LCD once booted ---
     uint8_t *fb = pc98_framebuffer();
-    int64_t t0 = esp_timer_get_time();
     int total = 0;
     // Rendering (text, graphics, composite) is the biggest per-frame cost
     // after the PSRAM-bound CPU, and the LCD only changes when we blit. So run
@@ -711,10 +676,6 @@ static void emu_task(void *arg) {
     // composites per 300 idle frames), so we let it run every frame — it's ~free
     // when static — and only pay the 25ms LCD blit on frames that actually drew.
     const int RENDER_EVERY = 2;   // drawscreen every 2nd frame: frees core 1 so emu hits real time (audio needs 22050 samples/s)
-    // perf breakdown accumulators (us) — answer "is the blit/downscale the cost?"
-    int64_t acc_exec = 0, acc_draw = 0, acc_blit = 0, acc_snd = 0;
-    int n_exec = 0, n_draw = 0;
-    UINT dc_prev = g_frames_composed;      // DIAG: how many frames actually composite (scrndraw_draw)
     // Emulated-time bookkeeping, shared by the FM drain and the real-time throttle:
     // dcyc = emulated CPU cycles executed per frame; both audio sample count and the
     // wall-clock target derive from it (via g_mach.cpu_clock).
@@ -722,9 +683,6 @@ static void emu_task(void *arg) {
     uint32_t rt_prevcyc = (uint32_t)(g_cpu.clocks_done + g_cpu.slice_len - g_cpu.slice_left);
     int64_t  rt_t0 = esp_timer_get_time();     // wall baseline
     int64_t  rt_emu_us = 0;                     // accumulated emulated time (us)
-    int64_t  acc_wait = 0;                      // perf: time spent throttled
-    int64_t  spd_t0 = esp_timer_get_time(), spd_emu = 0, spd_wait = 0;   // 7c: speed shown on the PCS line
-    int64_t  spd_pe = 0, spd_bl = 0;
     int64_t  snd_owed = 0;                      // FM: audio samples owed (rate-matched drain)
     printf("realtime pacing ON: realclock=%u Hz\n", (unsigned)rt_hz);
     g_comp_async = lcd_post_composite;      // stage 11: the composite runs on core 0
@@ -732,7 +690,6 @@ static void emu_task(void *arg) {
         // Disk swap menu (Pause/Break): modal — machine_frame pauses inside.
         if (g_menu_req) {
             g_menu_req = 0;
-            g_kd_menuopen++;
             // In-flight composite/blit jobs (core 0) must finish before the menu draws, or they land on top of it.
             for (int w = 0; (lcd_blit_busy() || lcd_comp_busy()) && w < 2000; w++) vTaskDelay(1);
             menu_disk_run();
@@ -743,6 +700,8 @@ static void emu_task(void *arg) {
             rt_emu_us = 0;
             rt_prevcyc = (uint32_t)(g_cpu.clocks_done + g_cpu.slice_len - g_cpu.slice_left);
         }
+
+        fdd_ext_tick();
 
         // Disk-menu CPU row: change the emulated clock at runtime.
         // Every clocked subsystem (sound, keyboard, mouse, GDC, events) follows.
@@ -801,23 +760,17 @@ static void emu_task(void *arg) {
             // the renders took, so the machine catches up without the screen stopping; only past 50 ms are renders skipped.
             const int gap = (debt_us < -35000) ? 6 : (debt_us < -20000) ? 3 : RENDER_MIN;
             render = g_pc98_draw_enabled && since_render >= gap && c0_free && (debt_us > -50000);
-            if (g_pc98_draw_enabled && since_render >= gap && !c0_free) g_c_ev4++;          // postponed: core 0 busy
-            if (g_pc98_draw_enabled && since_render >= gap && c0_free && debt_us <= -50000) g_c_dskip++;
             if (render) since_render = 0;
         } else {
             every = (debt_us > -30000) ? RENDER_EVERY : 4;
             render = g_pc98_draw_enabled && ((total % every) == 0) && (debt_us > -100000);
         }
-        if ((int)(debt_us / 1000) < g_debt_min) g_debt_min = (int)(debt_us / 1000);
-        if (render) { static int last_r; const int d = total - last_r; last_r = total; g_c_gap[d >= 4 ? 3 : d < 1 ? 0 : d - 1]++; g_c_render++; }
         // Tear-free: don't let this frame's drawscreen rewrite fb while the
         // core-0 blit is still reading it. A full non-render frame has passed
         // since the enqueue, so the blit is normally long done (zero wait).
-        if (render) { int64_t w0 = esp_timer_get_time(); while (!g_comp_async && lcd_blit_busy()) vTaskDelay(1); g_prof_bw += (unsigned long long)(esp_timer_get_time() - w0); }
+        if (render) { while (!g_comp_async && lcd_blit_busy()) vTaskDelay(1); }
         UINT dc0 = g_frames_composed;
-        int64_t a = esp_timer_get_time();
         machine_frame(render ? TRUE : FALSE);
-        int64_t b = esp_timer_get_time();
         // Only push to the LCD when drawscreen actually re-composited the frame
         // (g_frames_composed advanced) — skips the 25ms blit while the screen is static.
         if (render && fb) {
@@ -828,10 +781,6 @@ static void emu_task(void *arg) {
                 lcd_blit(fb);
             }
         }
-        int64_t c = esp_timer_get_time();
-        spd_pe += b - a; spd_bl += c - b;   // 7c: wall-time split for the PCS line
-        if (render) { acc_draw += (b - a); acc_blit += (c - b); n_draw++; }
-        else        { acc_exec += (b - a); n_exec++; }
 
         total++;
         lcd_lamps_tick();                // the drive lamps beside the picture
@@ -847,7 +796,6 @@ static void emu_task(void *arg) {
         // Rate-matched drain: emit audio in proportion to emulated time (dcyc), so
         // tempo is correct at any frame rate. (A fixed block/frame ran ~12% fast.)
         {
-            int64_t s0 = esp_timer_get_time();
             if (snd_is_async()) {       // the sound task renders and drains (snd_task)
                 __atomic_add_fetch(&s_snd_owed, (int32_t)((int64_t)dcyc * FM_RATE / rt_hz), __ATOMIC_ACQ_REL);
                 xTaskNotifyGive(s_snd_task);
@@ -869,23 +817,15 @@ static void emu_task(void *arg) {
                 snd_release(pcm);
                 snd_owed -= g_fm_frames;
             }
-            acc_snd += esp_timer_get_time() - s0;
         }
 #endif
 
 #if ENABLE_REALTIME
         rt_emu_us += (int64_t)dcyc * 1000000 / rt_hz;
-        spd_emu += (int64_t)dcyc * 1000000 / rt_hz;
         {
             int64_t now   = esp_timer_get_time() - rt_t0;
             int64_t ahead = rt_emu_us - now;
-            { static long long emu_us; emu_us += (int64_t)dcyc * 1000000 / rt_hz; g_emu_ms = emu_us / 1000; }
-            if (g_turbo) {
-                rt_t0 = esp_timer_get_time() - rt_emu_us;   // no waiting, and no debt when it is switched off
-                if ((total & 31) == 0) vTaskDelay(1);
-            } else if (ahead > 1000) {                 // ahead of real time -> wait it out
-                acc_wait += ahead;
-                spd_wait += ahead;
+            if (ahead > 1000) {                        // ahead of real time -> wait it out
                 vTaskDelay(pdMS_TO_TICKS(ahead / 1000));
             } else {
                 if (ahead < -200000) rt_emu_us = now;   // >200ms behind -> forgive debt
@@ -894,174 +834,6 @@ static void emu_task(void *arg) {
         }
 #else
         if ((total & 7) == 0) vTaskDelay(1);   // feed watchdog / let IDLE run
-#endif
-
-#ifdef PC98_DEBUG_LOG   // the serial logs below cost time: debug builds only (idf.py -DPC98_DEBUGLOG=1)
-        // Once, ten seconds in: the top of the text screen as the guest left
-        // it, and where the text GDC is told to show it from.
-        if (total <= 720 && (total % 60) == 30) {
-            ets_printf("TXT sad %05lx len %u csrw %05lx pitch %u\n",
-                       (unsigned long)GDC_SAD(&g_tgdc, 0), GDC_LEN(&g_tgdc, 0),
-                       (unsigned long)g_tgdc.ead, g_tgdc.pitch);
-            for (int row = 0; row < 8; row++) {
-                char line[81];
-                for (int col = 0; col < 80; col++) {
-                    const UINT8 c = bus_rd8(0xa0000 + (row * 80 + col) * 2);
-                    line[col] = (c >= 0x20 && c < 0x7f) ? (char)c : (c ? '#' : ' ');
-                }
-                line[80] = 0;
-                ets_printf("TXT %d|%s|\n", row, line);
-            }
-        }
-
-        // Where the guest is, once a second: a program that stops making
-        // progress shows the loop it sits in, and the code bytes there say
-        // which program it is.
-        if ((total % 60) == 0) {
-            const UINT32 pc = ((UINT32)g_cpu.reg.cs << 4) + g_cpu.reg.ip;
-            ets_printf("PCS %04x:%04x AX%04x BX%04x CX%04x DX%04x SI%04x DI%04x DS%04x ES%04x SS%04x SP%04x:",
-                       (unsigned)g_cpu.reg.cs, (unsigned)g_cpu.reg.ip, (unsigned)g_cpu.reg.ax, (unsigned)g_cpu.reg.bx,
-                       (unsigned)g_cpu.reg.cx, (unsigned)g_cpu.reg.dx, (unsigned)g_cpu.reg.si, (unsigned)g_cpu.reg.di,
-                       (unsigned)g_cpu.reg.ds, (unsigned)g_cpu.reg.es, (unsigned)g_cpu.reg.ss, (unsigned)g_cpu.reg.sp);
-            for (int k = 0; k < 16; k++) {
-                ets_printf(" %02x", bus_rd8(pc + k));
-            }
-            ets_printf(" | m401=%02x m501=%02x m480=%02x ct=%d a20=%x fh=%04x", bus_rd8(0x401), bus_rd8(0x501),
-                       bus_rd8(0x480), (int)g_cpu.v30, (unsigned)(g_cpu.addr_mask >> 20),
-                       (unsigned)g_cpu.x386.flags_hi);
-            {
-                // spd = emulated time / wall time; busy = share of wall time not spent throttled.
-                int64_t now = esp_timer_get_time(), wall = now - spd_t0;
-                if (wall > 0) {
-                    // exec = machine_frame (CPU + devices + screen composite), blit = LCD hand-off,
-                    // cpu = pc98_adapt_exec alone (cycles at the core clock), all as % of wall time
-                    static unsigned long long p_cyc;
-                    unsigned long long cyc = g_prof_cpu_cyc;
-                    int cpu_pct = (int)((cyc - p_cyc) / (unsigned long long)(esp_clk_cpu_freq() / 1000000) * 100 / (unsigned long long)wall);
-                    p_cyc = cyc;
-                    {
-                        // draw split: plane expand, text, RGB565 composite (cycles), snd_catch_up (us)
-                        static unsigned long long pg, pt, pc; static long long ps;
-                        const unsigned long long mhz = (unsigned long long)(esp_clk_cpu_freq() / 1000000);
-                        unsigned long long g = g_prof_grph, t = g_prof_text, cm = g_prof_comp; long long sn = g_prof_snd;
-                        ets_printf(" grph=%d%% text=%d%% comp=%d%% snd=%d%%", (int)((g - pg) / mhz * 100 / (unsigned long long)wall),
-                                   (int)((t - pt) / mhz * 100 / (unsigned long long)wall), (int)((cm - pc) / mhz * 100 / (unsigned long long)wall),
-                                   (int)((sn - ps) * 100 / wall));
-                        pg = g; pt = t; pc = cm; ps = sn;
-                    }
-                    {
-                        // display path: blit wait (core 1 blocked on the previous blit), core-0 blit time, composited rows / frames
-                        static unsigned long long pc0, pbw, pbt, pbn, prw, pcf, pk15, pl200;
-                        unsigned long long bw = g_prof_bw, bt = g_prof_bt, bn = g_prof_bn, rw = g_prof_rows, cf = g_prof_cframes, k15 = g_prof_k15, l200 = g_prof_l200;
-                        ets_printf(" c0=%d%% bw=%d%% bt=%d%% blits=%u frames=%u rows/f=%u k15=%u l200=%u", (int)((g_prof_comp0 - pc0) * 100 / (unsigned long long)wall), (int)((bw - pbw) * 100 / (unsigned long long)wall),
-                                   (int)((bt - pbt) * 100 / (unsigned long long)wall), (unsigned)(bn - pbn), (unsigned)(cf - pcf),
-                                   (unsigned)((cf - pcf) ? (rw - prw) / (cf - pcf) : 0), (unsigned)(k15 - pk15), (unsigned)(l200 - pl200));
-                        pc0 = g_prof_comp0; pbw = bw; pbt = bt; pbn = bn; prw = rw; pcf = cf; pk15 = k15; pl200 = l200;
-                    }
-                    {
-                        // frame pacing: renders, frames skipped on the debt rule, ticks on the slow cadence, worst debt (ms),
-                        // display post interval (n / avg / max ms), guest VSYNCs and page flips
-                        static unsigned prn, pds, pe4, pdn, pvs, pfl; static unsigned long long pdsum;
-                        unsigned dn = g_prof_dn, vs = g_prof_vsync, fl = g_prof_flip;
-                        unsigned long long dsum = g_prof_dsum;
-                        { static unsigned pg[4]; ets_printf(" gap=%u/%u/%u/%u", g_c_gap[0]-pg[0], g_c_gap[1]-pg[1], g_c_gap[2]-pg[2], g_c_gap[3]-pg[3]); for (int q = 0; q < 4; q++) pg[q] = g_c_gap[q]; }
-                        ets_printf(" rnd=%u dskip=%u c0busy=%u dmin=%d di=%u/%u/%u vs=%u flip=%u", g_c_render - prn, g_c_dskip - pds, g_c_ev4 - pe4, (int)g_debt_min,
-                                   dn - pdn, (unsigned)((dn - pdn) ? (dsum - pdsum) / (dn - pdn) / 1000 : 0), (unsigned)(g_prof_dmax / 1000), vs - pvs, fl - pfl);
-                        prn = g_c_render; pds = g_c_dskip; pe4 = g_c_ev4; pdn = dn; pdsum = dsum; pvs = vs; pfl = fl; g_prof_dmax = 0; g_debt_min = 0;
-                    }
-                    ets_printf(" spd=%d%% busy=%d%% exec=%d%% cpu=%d%% blit=%d%%", (int)(spd_emu * 100 / wall), (int)((wall - spd_wait) * 100 / wall),
-                               (int)(spd_pe * 100 / wall), cpu_pct, (int)(spd_bl * 100 / wall));
-                }
-                spd_t0 = now; spd_emu = spd_wait = spd_pe = spd_bl = 0;
-            }
-            {
-                // host cycles per emulated clock inside pc98_adapt_exec (legacy and new CPU alike)
-                static unsigned long long p_cyc, p_clk, p_ins;
-                unsigned long long cyc = g_prof_cpu_cyc, clk = g_prof_cpu_clk, hins = g_prof_cpu_ins;
-                if (clk > p_clk) ets_printf(" cpc=%u.%02u hipc=%u.%02u", (unsigned)((cyc - p_cyc) / (clk - p_clk)), (unsigned)((cyc - p_cyc) * 100 / (clk - p_clk) % 100),
-                    (unsigned)((hins - p_ins) / (clk - p_clk)), (unsigned)((hins - p_ins) * 100 / (clk - p_clk) % 100));
-                p_cyc = cyc; p_clk = clk; p_ins = hins;
-            }
-#if defined(PC98_NEWCPU) && PC98_NEWCPU == 1
-            {
-                // 7c-1b: retired instructions, fast16 batches and reference-CPU steps since the last line
-                static unsigned long long p_ins; static unsigned p_runs, p_slow;
-                unsigned long long ins; unsigned runs, slow;
-                pc98_adapt_prof(&ins, &runs, &slow);
-                ets_printf(" ins=%u runs=%u slow=%u", (unsigned)(ins - p_ins), runs - p_runs, slow - p_slow);
-                p_ins = ins; p_runs = runs; p_slow = slow;
-            }
-#ifdef PC98_COST
-            {
-                extern uint32_t g_cost[16], g_cop_n[256], g_cop_i[256], g_csh[64];
-                static unsigned cn;
-                ets_printf(" COST n=%u dec=%u exe=%u com=%u tot=%u inrun=%u runs=%u MINI cyc=%u ins=%u gins=%u entries=%u", g_cost[3], g_cost[0], g_cost[1], g_cost[2], g_cost[8], g_cost[9], g_cost[10], g_cost[11], g_cost[12], g_cost[13], g_cost[14]);
-                { extern uint32_t g_str[8], g_strx[64], g_strm[8]; ets_printf(" SM %u/%u/%u/%u/%u/%u/%u", g_strm[0], g_strm[1], g_strm[2], g_strm[3], g_strm[4], g_strm[5], g_strm[6]); for (int k = 0; k < 8; k++) g_strm[k] = 0; ets_printf(" STR ram=%u/%u vrun=%u/%u dev=%u/%u SX", g_str[0], g_str[1], g_str[2], g_str[3], g_str[4], g_str[5]); for (int k = 0; k < 8; k++) g_str[k] = 0; for (int k = 0; k < 64; k++) { if (g_strx[k]) ets_printf(" %d:%u", k, g_strx[k]); g_strx[k] = 0; } }
-                for (int k = 0; k < 16; k++) g_cost[k] = 0;
-                if ((++cn % 8) == 0) {
-                    ets_printf("%cCOSTOP", 10);
-                    for (int k = 0; k < 256; k++) if (g_cop_n[k]) ets_printf(" %02x:%u:%u", k, g_cop_n[k], g_cop_i[k]);
-                }
-                if ((cn % 8) == 0) { ets_printf(" SH"); for (int k = 0; k < 64; k++) if (g_csh[k]) ets_printf(" %d:%u", k, g_csh[k]); }
-                for (int k = 0; k < 64; k++) g_csh[k] = 0;
-                for (int k = 0; k < 256; k++) { g_cop_n[k] = 0; g_cop_i[k] = 0; }
-            }
-#endif
-#endif
-            ets_printf("\n");
-        }
-
-        audio_peak_report();   // dev: one short line per ~10 s
-
-        // 7c-0 heartbeat, ~every 5 s: is the loop alive, do USB reports still arrive,
-        // does the menu key still reach g_menu_req, is internal RAM draining.
-        if ((total % 300) == 0) {
-            ets_printf("KBDHB f=%d usb rep=%u nz=%u bt rep=%u nz=%u short=%u menuset=%u open=%u req=%d conn=%u disc=%u xerr=%u rst=%u "
-                       "last=%02x%02x%02x%02x%02x%02x%02x%02x int_free=%u min=%u\n",
-                       total, (unsigned)g_kd_rep[0], (unsigned)g_kd_nz[0], (unsigned)g_kd_rep[1], (unsigned)g_kd_nz[1],
-                       (unsigned)g_kd_short, (unsigned)g_kd_menuset, (unsigned)g_kd_menuopen, g_menu_req,
-                       (unsigned)g_kd_conn, (unsigned)g_kd_disc, (unsigned)g_kd_xferr, (unsigned)g_kd_restart,
-                       g_kd_last[0], g_kd_last[1], g_kd_last[2], g_kd_last[3], g_kd_last[4], g_kd_last[5], g_kd_last[6], g_kd_last[7],
-                       (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
-                       (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
-        }
-#endif
-
-#if DEBUG_PERF_LOG
-        if ((total % 300) == 0) {
-            int ms = (int)((esp_timer_get_time() - t0) / 1000);
-            int fps10 = ms ? (int)((long long)total * 10000 / ms) : 0;
-            printf("[%d frames] %d.%d fps in %dms\n", total, fps10 / 10, fps10 % 10, ms);
-            // per-frame averages: exec=CPU-only(no draw), draw=CPU+drawscreen, blit=downscale+SPI
-            int nall = n_exec + n_draw;
-            printf("  perf/frame: exec=%dus (n=%d)  draw=%dus  blit=%dus (n=%d)  snd=%dus  composites=%u\n",
-                   n_exec ? (int)(acc_exec / n_exec) : 0, n_exec,
-                   n_draw ? (int)(acc_draw / n_draw) : 0,
-                   n_draw ? (int)(acc_blit / n_draw) : 0, n_draw,
-                   nall ? (int)(acc_snd / nall) : 0,
-                   (unsigned)(g_frames_composed - dc_prev));
-            dc_prev = g_frames_composed;
-            acc_exec = acc_draw = acc_blit = acc_snd = 0; n_exec = n_draw = 0;
-#if ENABLE_REALTIME
-            // wait/frame high => plenty of real-time headroom; ~0 => can't keep up
-            printf("  realtime: wait=%dus/frame (headroom)\n", (int)(acc_wait / 300));
-            acc_wait = 0;
-#endif
-#if ENABLE_FM_SOUND
-            // audio peak: >32767 => the mix clips (buzz). Reset each window.
-            printf("  audio: peak=%d drops=%d under=%d | gen=%d skip=%d locks=%d\n",
-                   g_audio_peak, g_audio_drops, g_audio_under,
-                   g_snd_frames, g_snd_dropped, g_snd_takes);
-            g_audio_peak = 0; g_audio_drops = 0; g_audio_under = 0;
-            g_snd_frames = 0; g_snd_dropped = 0; g_snd_takes = 0;
-            int nfr = 300;
-            printf("  phases/frame: loop=%dus cb=%dus sndsync=%dus draw=%dus\n",
-                   (int)(g_prof_loop / nfr), (int)(g_prof_cb / nfr),
-                   (int)(g_prof_snd / nfr), (int)(g_prof_draw / nfr));
-            g_prof_loop = 0; g_prof_cb = 0; g_prof_snd = 0; g_prof_draw = 0;
-#endif
-            if (total <= 900) dump_text_vram();
-        }
 #endif
     }
 }

@@ -1,19 +1,17 @@
-# 98TAB5 1.1.0 ファームウェア
+# 98TAB5 1.1.9 ファームウェア
 
 対象: M5Stack Tab5 / ESP32-P4。ESP-IDF 5.5.0 でビルドしています。
 
 ## 変更点
 
-- サウンドエフェクトの追加と整理
-- 再現性の向上
-- 軽微な修正
+- ソースの一部をアセンブラで書き直し高速化
 
 ## 新規書き込み（M5Burner 向けの結合版）
 
-`98TAB5-public-1.1.0-20261103.bin` を **0x0** に書き込みます。全体を書き込むため、設定が失われる場合があります。
+`98TAB5-public-1.1.9-20261106.bin` を **0x0** に書き込みます。全体を書き込むため、設定が失われる場合があります。
 
 ```sh
-python -m esptool --chip esp32p4 --port COM15 --baud 460800 write_flash 0x0 98TAB5-public-1.1.0-20261103.bin
+python -m esptool --chip esp32p4 --port COM15 --baud 460800 write_flash 0x0 98TAB5-public-1.1.9-20261106.bin
 ```
 
 ## 設定を維持する更新

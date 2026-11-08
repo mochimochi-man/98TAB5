@@ -42,12 +42,6 @@
 #include <media/fdmedia.h>
 #include <media/drives.h>
 
-#if defined(FDC_TRACE) || defined(PC98_DEBUG_LOG)
-#include <stdio.h>
-#define TRACE(...) printf(__VA_ARGS__)
-#else
-#define TRACE(...) ((void)0)
-#endif
 
 #define MSR_CB		0x10
 #define MSR_NDM		0x20
@@ -234,7 +228,6 @@ static void finish_at_t(void)
 
 	ev_cancel(EV_FDCBYTE);
 	F.byte_ready = 0;
-	TRACE("FDC finish st0 %02x st1 %02x pos %u/%u tc %u t+%lld\n", F.st0, F.st1, (unsigned)F.pos, (unsigned)F.len, F.tc, (long long)(F.t - t));
 	dma_request(dma_ch(), 0);
 	F.res[0] = (UINT8)(F.st0 | (F.hd << 2) | F.us);
 	F.res[1] = F.st1;
@@ -257,7 +250,6 @@ static void finish_at_t(void)
 static void end_event(UINT id, int timed)
 {
 	(void)id;
-	TRACE("FDC end_event timed %d phase %u\n", timed, F.phase);
 	if (!timed) return;
 	result(7);
 	irq(1);
@@ -366,8 +358,14 @@ static void advance(void)
 static void rw_sector(void);
 
 /* The 765 requests one byte when it passes the head, not a whole-sector DMA burst.
- * Deadlines are derived from the whole field so rounding/CPU acknowledgement latency cannot accumulate. */
+ * Deadlines are derived from the whole field so rounding/CPU acknowledgement latency cannot accumulate.
+ * Through DMA the bytes go in groups of DMA_GROUP, each group when its last byte passes the head: one event every
+ * 16 us, the rate of a 2HD disk, cut the CPU's run so short that a load took the machine below real time (the
+ * music broke up), and nothing can tell the bytes of 0.25 ms apart. Without DMA, or with the channel masked, the
+ * bytes go one at a time as before. */
+#define DMA_GROUP	16
 static void byte_event(UINT id, int timed);
+static UINT32 group_end(UINT32 pos) { return (F.nd || pos + DMA_GROUP > F.len) ? (F.nd ? pos + 1 : F.len) : pos + DMA_GROUP; }
 
 static void arm_byte(UINT32 ordinal)
 {
@@ -384,9 +382,30 @@ static void byte_event(UINT id, int timed)
         fail(ST0_ABN, ST1_OR, 0);
         return;
     }
+    if (!F.nd) {
+        const UINT32 end = group_end(F.pos);
+
+        while (F.phase == PH_EXEC && F.pos < end && F.pos < F.len) {
+            const UINT32 before = F.pos;
+
+            F.byte_ready = 1;
+            if (!dma_burst_byte(dma_ch())) {
+                F.byte_ready = 0;
+                break;
+            }
+            if (F.pos == before) {          /* the controller did not move it: leave it to the DREQ below */
+                break;
+            }
+        }
+        if (F.phase != PH_EXEC || F.kind == X_NONE || F.pos >= F.len) return;
+        if (F.pos == end) {
+            arm_byte(group_end(F.pos));
+            return;
+        }
+    }
     F.byte_ready = 1;
     if (F.nd) irq(1); else dma_request(dma_ch(), 1);
-    if (F.pos + 1 < F.len) arm_byte(F.pos + 2);
+    if (F.pos + 1 < F.len) arm_byte(F.nd ? F.pos + 2 : group_end(F.pos + 1));
 }
 
 static void start_transfer(UINT32 len, int to_host)
@@ -420,10 +439,8 @@ static void start_transfer(UINT32 len, int to_host)
         if (F.t < F.data_start + span) F.t = F.data_start + span;
     }
     (void)to_host;
-    TRACE("FDC xfer len %u nd %u data_ns %llu t+%lld\n", (unsigned)len, (unsigned)F.nd,
-          (unsigned long long)data_ns, (long long)(F.t - current));
     dma_request(dma_ch(), 0);
-    arm_byte(1);
+    arm_byte(group_end(0));
 }
 
 static void rw_sector(void)
@@ -801,7 +818,6 @@ static void command_ready(void)
 {
 	const UINT8 op = F.cmd[0] & 0x1f;
 
-	TRACE("FDC cmd %02x %02x %02x %02x %02x %02x %02x %02x %02x pcn%u @%ums\n", F.cmd[0], F.cmd[1], F.cmd[2], F.cmd[3], F.cmd[4], F.cmd[5], F.cmd[6], F.cmd[7], F.cmd[8], F.pcn[F.cmd[1] & 3], (unsigned)(clk_to_us(now()) / 1000));
 
 	irq(0);
 	switch (op) {
@@ -918,10 +934,8 @@ static void command_ready(void)
 	}
 }
 
-static UINT s_tr;
 static void data_w(UINT port, REG8 v)
 {
-	if (s_tr < 400) { s_tr++; TRACE("FDC dw%03x %02x ph%u\n", port, v, F.phase); }
 	if (((port >> 4) ^ F.iface) & 1) return;
 	if (F.phase == PH_EXEC && F.nd) {
 		from_host(v);
@@ -944,7 +958,6 @@ static REG8 data_r(UINT port)
 	if (F.phase == PH_EXEC && F.nd) return to_host();
 	if (F.phase != PH_RESULT) return 0xff;
 	v = F.res[F.rpos++];
-	if (F.rpos == 1) TRACE("FDC res %02x %02x %02x %02x %02x %02x %02x n%u\n", F.res[0], F.res[1], F.res[2], F.res[3], F.res[4], F.res[5], F.res[6], F.nres);
 	if (F.rpos == 1) irq(0);
 	if (F.rpos >= F.nres) {
 		UINT i;
@@ -960,7 +973,6 @@ static REG8 status_r(UINT port)
 {
 	REG8 v = 0;
 	UINT i;
-	static UINT last = 0x100;
 
 	if (((port >> 4) ^ F.iface) & 1) return 0xff;
 	for (i = 0; i < 4; i++) {
@@ -975,7 +987,6 @@ static REG8 status_r(UINT port)
 		break;
 	default: v |= MSR_CB; break;
 	}
-	if (v != last && s_tr < 400) { s_tr++; last = v; TRACE("FDC sr%03x %02x\n", port, v); }
 	return v;
 }
 
@@ -1005,7 +1016,6 @@ static void ctrl_w(UINT port, REG8 v)
 {
 	const UINT8 old = F.ctrl;
 
-	TRACE("FDC w%03x %02x iface%02x\n", port, v, F.iface);
 	if (((port >> 4) ^ F.iface) & 1) return;
 	const int was_on = motor_on();
 	F.ctrl = (UINT8)v;
@@ -1028,7 +1038,6 @@ static void iface_w(UINT port, REG8 v)
 {
 	const int was_on = motor_on();
 
-	TRACE("FDC wBE %02x\n", v);
 	(void)port;
 	F.iface = (UINT8)v;
 	motor_check(was_on);

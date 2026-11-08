@@ -1,6 +1,11 @@
 98TAB5
 
 
+1.1.9   2026-11-06
+
+  - Rewrote part of the source in assembly for speed.
+
+
 1.1.0   2026-11-03
 
   - Added and reorganized sound effects.

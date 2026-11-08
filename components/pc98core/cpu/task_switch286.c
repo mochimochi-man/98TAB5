@@ -2,7 +2,6 @@
  * Copyright (c) mochimochi-man / Uh
  * Intel286 PRM8.3 and SWITCH_TASKS B-12/B-13. */
 #include "task_switch286.h"
-#include "cpuprof.h"
 #include "purge.h"
 #include <assert.h>
 #include <string.h>
@@ -31,7 +30,7 @@ int pc98_cpu_switch_task286(Pc98Cpu16State *c,Pc98TaskSwitch286 *context,const P
  uint16_t selector,enum Pc98TaskTransfer286 mode,int check_privilege,int external,
  int has_error,uint16_t original_error,Pc98CpuFault16 *failure){
  assert(c->model==PC98_CPU_286&&mode>=PC98_TASK_CALL&&mode<=PC98_TASK_INTERRUPT);
- PROF_EVT(PEV_TASK_CALL+(unsigned)mode);
+ 
  Pc98ProtectedSegments286 *p=context->segments;Pc98TaskRegisters286 *tr=context->task;
  Pc98FetchBus fetch={.context=b->context,.read8=b->read8};uint16_t error=(uint16_t)(selector&0xfffcu);unsigned fault=mode==PC98_TASK_IRET?10u:13u;
  if(!(selector&0xfffcu)||(selector&4u))goto pre_fault;

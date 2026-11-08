@@ -3,7 +3,6 @@
  * Intel 80286 PRM 10.4.2: LMSW enables PE without reloading selectors.
  * Descriptor tables are consulted on subsequent explicit segment loads. */
 #include "mode286.h"
-#include "cpuprof.h"
 #include "real286.h"
 #include "loadall286.h"
 #include <string.h>
@@ -13,11 +12,11 @@ static void initialize_cache(Pc98Mode286 *m,const Pc98Cpu16State *c){
  m->cache_initialized=1;
 }
 static int enable(void *context,Pc98Cpu16State *c){
- Pc98Mode286 *m=context;if(c->model!=PC98_CPU_286)return 0;initialize_cache(m,c);PROF_EVT(PEV_PE_ENTER);
+ Pc98Mode286 *m=context;if(c->model!=PC98_CPU_286)return 0;initialize_cache(m,c);
  c->cpl=(uint8_t)((m->segments.cache[PC98_CS].access>>5)&3u);c->cpl_valid=1;return 1;
 }
 static int load_all(void *context,Pc98Cpu16State *c,const Pc98ExecuteBus *b,Pc98CpuFault16 *failure){
- (void)failure;Pc98Mode286 *m=context;uint8_t bytes[102];PROF_EVT(PEV_LOADALL);
+ (void)failure;Pc98Mode286 *m=context;uint8_t bytes[102];
  for(unsigned i=0;i<102;i+=2){uint16_t value=b->read16(b->context,0x800u+i);bytes[i]=(uint8_t)value;bytes[i+1]=(uint8_t)(value>>8);}
  Pc98Loadall286 s=pc98_cpu_parse_loadall286(bytes);s.msw|=m->system.msw&1u;
  m->system.msw=s.msw;m->task=(Pc98TaskRegisters286){.tr=s.tr,.ldtr=s.ldtr,.tss=s.tss,.tr_valid=(uint8_t)((s.tss.access&128u)!=0)};

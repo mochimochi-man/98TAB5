@@ -18,13 +18,6 @@
 
 extern "C" int ets_printf(const char *fmt, ...);
 
-// Where this file's messages go. USB Mode moves the console off the USB socket
-// to serve mass storage, so anything printed there afterwards is lost - it
-// points this at its CDC log buffer instead, which is the only channel left.
-extern "C" void (*g_kbd_log)(const char *fmt, ...) = nullptr;
-#define KLOG(...) do { \
-        if (g_kbd_log) { g_kbd_log(__VA_ARGS__); } else { ets_printf(__VA_ARGS__); } \
-    } while (0)
 #include "usb/hid_host.h"
 #include "usb/usb_host.h"
 #include "soc/usb_dwc_struct.h"
@@ -48,10 +41,8 @@ static uint8_t s_prevmod[HID_SRC_MAX];
 
 // Set when Pause/Break is pressed: the emulator loop opens the disk swap menu.
 volatile int g_menu_req = 0;
-volatile int g_menu_active = 0;     // 1 while menu_disk_run() owns the screen (diag: log raw reports then)
-// 7c-0 diag: counters read by the main-loop heartbeat (kbd_diag_line).
-volatile uint32_t g_kd_rep[2], g_kd_nz[2], g_kd_menuset, g_kd_short, g_kd_conn, g_kd_disc, g_kd_xferr, g_kd_restart;
-volatile uint8_t  g_kd_last[8];   // last non-idle USB report
+volatile int g_menu_active = 0;     // 1 while menu_disk_run() owns the screen
+static volatile bool s_usb_attached;   // a USB device has attached since boot (the port re-arm task waits on it)
 // Set by the disk menu's CPU row: the emulator loop applies the new multiple.
 volatile int g_speed_req = 0;
 
@@ -100,7 +91,6 @@ extern "C" int usb_kbd_pop(uint8_t *nkey, uint8_t *down) {
 // Temporary: dump every keyboard report plus the PC-98 code its first two key
 // slots map to, so a key that "does not type" can be traced either to the report
 // itself or to the usage->NKEY table. Set to 0 for normal builds.
-#define HID_KBD_TRACE 0
 
 // HID usages that open the disk menu. Pause/Break is the classic one, but many
 // compact keyboards (and most Bluetooth ones) simply do not have that key, so
@@ -116,32 +106,7 @@ static bool hid_is_menu_key(uint8_t k) {
 // Parse an 8-byte HID boot keyboard report and queue press/release deltas.
 extern "C" void hid_kbd_report(int src, const uint8_t *d, int len) {
     if ((unsigned)src >= HID_SRC_MAX) return;
-    if (len < 8) { g_kd_short++; return; }
-    g_kd_rep[src]++;
-    for (int i = 0; i < 8; i++) if (d[i]) { g_kd_nz[src]++; if (src == 0) memcpy((void *)g_kd_last, d, 8); break; }
-#if HID_KBD_TRACE
-    // The keyboard streams idle (all-zero) reports continuously, and a serial
-    // capture rarely overlaps the moment a key is pressed - so keep the reports
-    // that actually carry something and re-print the list every few seconds.
-    {
-        static uint8_t hist[16][8];
-        static int nhist = 0;
-        static int64_t last_dump = 0;
-        bool nonzero = false;
-        for (int i = 0; i < 8; i++) if (d[i]) nonzero = true;
-        if (nonzero && nhist < 16) { memcpy(hist[nhist], d, 8); nhist++; }
-        int64_t now = esp_timer_get_time();
-        if (nhist && (now - last_dump) > 5000000) {
-            last_dump = now;
-            ets_printf("--- kbd history (%d) ---\n", nhist);
-            for (int i = 0; i < nhist; i++)
-                ets_printf("  mod=%02x keys %02x %02x %02x %02x %02x %02x -> nkey %02x %02x\n",
-                           hist[i][0], hist[i][2], hist[i][3], hist[i][4],
-                           hist[i][5], hist[i][6], hist[i][7],
-                           s_hid2nkey[hist[i][2]], s_hid2nkey[hist[i][3]]);
-        }
-    }
-#endif
+    if (len < 8) return;
     uint8_t *prevkeys = s_prevkeys[src];
     // modifiers: L/R shift, L/R ctrl, L/R alt(->GRPH)
     static const struct { uint8_t bit, nkey; } mods[] = {
@@ -173,7 +138,6 @@ extern "C" void hid_kbd_report(int src, const uint8_t *d, int len) {
         if (!had) {
             if (hid_is_menu_key(k)) {
                 g_menu_req = 1;                     // opens the disk swap menu
-                g_kd_menuset++;
             } else {
                 kq_push(s_hid2nkey[k], 1);
             }
@@ -209,20 +173,16 @@ static void hid_iface_cb(hid_host_device_handle_t handle,
         // never reports again, so Pause/F11/F12 (and every other key) go dead after
         // some time until the keyboard is replugged. Ask hid_task to re-arm it; this
         // callback runs on the USB lib task, which the stop/start below would deadlock.
-        g_kd_xferr++;
-        KLOG("usb_kbd: IN transfer error, restarting the interface\n");
         const hid_evt_t e = { handle, (hid_host_driver_event_t)0, arg, 1 };
         xQueueSend(s_hid_evtq, &e, 0);
         break;
     }
     case HID_HOST_INTERFACE_EVENT_DISCONNECTED:
-        g_kd_disc++;
         if (arg != (void *)HID_PROTOCOL_MOUSE) {
             static const uint8_t none[8]={0};
             hid_kbd_report(HID_SRC_USB,none,8);
-            KLOG("usb_kbd: keyboard disconnected\n");
         }
-        if (arg == (void *)HID_PROTOCOL_MOUSE) { hid_mouse_detach(); KLOG("usb_kbd: mouse disconnected\n"); }
+        if (arg == (void *)HID_PROTOCOL_MOUSE) { hid_mouse_detach(); }
         hid_host_device_close(handle);
         break;
     default: break;
@@ -236,17 +196,12 @@ static void hid_dev_event(hid_host_device_handle_t handle,
     if (event == HID_HOST_DRIVER_EVENT_CONNECTED) {
         if (p.proto != HID_PROTOCOL_KEYBOARD && p.proto != HID_PROTOCOL_MOUSE) { return; }
         const hid_host_device_config_t cfg = { .callback = hid_iface_cb, .callback_arg = (void *)p.proto };
-        KLOG("usb_kbd: interface addr=%d iface=%d subclass=%d proto=%d\n", (int)p.addr, (int)p.iface_num, (int)p.sub_class, (int)p.proto);
         hid_host_device_open(handle, &cfg);
         // Boot protocol => fixed reports we know how to parse (kbd 8B / mouse 3B).
         hid_class_request_set_protocol(handle, HID_REPORT_PROTOCOL_BOOT);
         hid_host_device_start(handle);
-        if (p.proto == HID_PROTOCOL_MOUSE) { hid_mouse_attach(); KLOG("usb_kbd: mouse connected\n"); }
-        else KLOG("usb_kbd: keyboard connected\n");
-        hid_host_dev_info_t info={};
-        if(hid_host_get_device_info(handle,&info)==ESP_OK)
-            KLOG("usb_kbd: device VID=%04x PID=%04x\n",info.VID,info.PID);
-        g_kd_conn++;
+        if (p.proto == HID_PROTOCOL_MOUSE) hid_mouse_attach();
+        s_usb_attached = true;
     }
 }
 
@@ -271,8 +226,7 @@ static void hid_task(void *arg) {
                 vTaskDelay(pdMS_TO_TICKS(100));
                 hid_host_device_stop(e.handle);     // halt+flush+clear the endpoint, ACTIVE -> READY
                 const esp_err_t r = hid_host_device_start(e.handle);
-                if (r == ESP_OK) { g_kd_restart++; KLOG("usb_kbd: interface restarted\n"); break; }
-                KLOG("usb_kbd: restart failed (%d)\n", (int)r);
+                if (r == ESP_OK) break;
             }
         }
 }
@@ -283,7 +237,7 @@ static void usb_lib_task(void *arg) {
     hc.skip_phy_setup = false;
     hc.root_port_unpowered = true;      // the port is enabled below, once it is limited to full speed
     hc.intr_flags = ESP_INTR_FLAG_LEVEL1;
-    if (usb_host_install(&hc) != ESP_OK) { KLOG("usb_kbd: usb_host_install FAIL\n"); vTaskDelete(NULL); return; }
+    if (usb_host_install(&hc) != ESP_OK) { vTaskDelete(NULL); return; }
 
     // Run the port at full speed, on purpose.
     //
@@ -310,7 +264,6 @@ static void usb_lib_task(void *arg) {
     USB_DWC_HS.hcfg_reg.fslssupp = 1;
     tab5_usb_host_power(true);
     usb_host_lib_set_root_port_power(true);
-    KLOG("usb_kbd: host limited to full speed (hubs reach FS/LS devices)\n");
     xTaskNotifyGive((TaskHandle_t)arg);
     for (;;) {
         uint32_t flags;
@@ -405,8 +358,7 @@ static void usb_rearm_task(void *arg) {
     (void)arg;
     for (int attempt = 1; attempt <= 3; attempt++) {
         vTaskDelay(pdMS_TO_TICKS(4000));
-        if (g_kd_conn) break;
-        KLOG("usb_kbd: nothing attached, power-cycling the port (%d/3)\n", attempt);
+        if (s_usb_attached) break;
         usb_host_lib_set_root_port_power(false);
         tab5_usb_host_power(false);
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -436,8 +388,7 @@ extern "C" void usb_kbd_init(void) {
         .create_background_task = true, .task_priority = 5, .stack_size = 4096,
         .core_id = 0, .callback = hid_dev_cb, .callback_arg = NULL,
     };
-    if (hid_host_install(&dc) != ESP_OK) { KLOG("usb_kbd: hid_host_install FAIL\n"); return; }
+    if (hid_host_install(&dc) != ESP_OK) return;
     xTaskCreatePinnedToCore(hid_task, "hid_task", 4096, NULL, 2, NULL, 0);
-    KLOG("usb_kbd: USB HID keyboard host ready\n");
     xTaskCreatePinnedToCore(usb_rearm_task, "usb_rearm", 2560, NULL, 2, NULL, 0);
 }

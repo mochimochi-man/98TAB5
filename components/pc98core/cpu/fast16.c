@@ -19,6 +19,14 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
 #include "clock_tables.inc"
+/* stage 21: the mini loop in RISC-V assembly (fast16_mini_rv.S, its own loop: the C mini handlers it lacks run one
+ * instruction at a time through f16x_cone); -DPC98_FAST16_CMINI keeps the C ones. F16_ASM: the C handlers the
+ * assembly has are left out. */
+#if defined(__riscv) && !defined(PC98_FAST16_CMINI)
+#define F16_ASM 1
+#else
+#define F16_ASM 0
+#endif
 
 /* plain graphics VRAM (bus.c, video/vram.c): the mini loop's byte moves */
 extern int g_gvram_plain;
@@ -33,27 +41,6 @@ void PC98_FAST16_WRITE_HOOK(uint32_t addr, uint8_t value);
 #define F16_HOOK(a, v) ((void)0)
 #endif
 
-#ifdef PC98_COST
-uint32_t g_str[8], g_strx[64], g_strm[8]; uint32_t g_cost[16]; uint32_t g_cop_n[256], g_cop_i[256], g_csh[64];
-#ifdef PC98_COSTCYC
-#define COST_RDI() ({ unsigned _v; __asm__ volatile("csrr %0, 0xb00" : "=r"(_v)); _v; })   /* mcycle */
-#else
-#define COST_RDI() ({ unsigned _v; __asm__ volatile("csrr %0, 0xb02" : "=r"(_v)); _v; })   /* minstret */
-#endif
-#define COST_STR(i, k) (g_str[(i)] += (k), g_str[(i) + 1]++)
-#define COST_DECL unsigned ct0 = 0, ct1 = 0, ct2 = 0, ct3;
-#define COST_T0() (ct0 = COST_RDI())
-#define COST_T1() (ct1 = COST_RDI())
-#define COST_T2() (ct2 = COST_RDI())
-#define COST_T3() do { ct3 = COST_RDI(); g_cost[0] += ct1 - ct0 - 1; g_cost[1] += ct2 - ct1 - 1; g_cost[2] += ct3 - ct2 - 1; g_cost[3]++; g_cop_n[op]++; g_cop_i[op] += ct2 - ct1 - 1; if ((op & 0xfeu) == 0xd0u || (op & 0xfeu) == 0xc0u) g_csh[((~op >> 4) & 1u) * 32u + (reg << 2) + ((op & 1u) << 1) + (mod == 3)]++; } while (0)
-#else
-#define COST_STR(i, k) ((void)0)
-#define COST_DECL
-#define COST_T0() ((void)0)
-#define COST_T1() ((void)0)
-#define COST_T2() ((void)0)
-#define COST_T3() ((void)0)
-#endif
 /* ITF ROM image offset inside mem[] (the ITF bank is kept 100000h above the BIOS bank, bus.c rom_r8) */
 #define F16_ITF_STEP 0x100000u
 enum { F_CF = 1, F_PF = 4, F_AF = 16, F_ZF = 64, F_SF = 128, F_TF = 256, F_IF = 512, F_DF = 1024, F_OF = 2048 };
@@ -66,9 +53,6 @@ enum { SG_ES = 0, SG_CS = 1, SG_SS = 2, SG_DS = 3 };
 /* PF (bit 2) when the low byte has even parity */
 static const uint8_t par_tab[256] = { B6(4), B6(0), B6(0), B6(4) };
 
-#ifdef PC98_FAST16_STATS
-unsigned long long pc98_fast16_slow_fetch[64][2];   /* code fetched through the bus, by 32K page and ITF flag */
-#endif
 /* ---- eligibility ---- */
 int pc98_fast16_eligible(const Pc98Adapter *A)
 {
@@ -189,12 +173,20 @@ static inline unsigned f_dec8(unsigned a, unsigned *fl)
 }
 /* Group-2 shifts/rotates, cnt >= 1 (op 0..5,7). Same results as the reference's
  * iterate-count-times loop, in closed form. */
-static inline __attribute__((always_inline)) unsigned f_shiftK(unsigned op, unsigned B, unsigned v, unsigned cnt, unsigned *fl);
+static inline __attribute__((always_inline)) unsigned f_shiftN(unsigned op, unsigned B, unsigned v, unsigned cnt, unsigned *fl);
 static __attribute__((noinline)) unsigned f_shift(unsigned op, unsigned B, unsigned v, unsigned cnt, unsigned *fl)
 {
-    return f_shiftK(op, B, v, cnt, fl);
+    return f_shiftN(op, B, v, cnt, fl);
 }
-static inline __attribute__((always_inline)) unsigned f_shiftK(unsigned op, unsigned B, unsigned v, unsigned cnt, unsigned *fl)
+/* the same, flags by value: (new FLAGS << 16) | result. The mini handlers use this form: a handler that passes the
+ * address of fl cannot leave with a sibling call, and the assembly handlers (fast16_mini_rv.S) need every C handler
+ * to leave with one (a normal call would run the next handler with the caller's s registers). */
+static __attribute__((noinline)) uint32_t f_shift_v(unsigned op, unsigned B, unsigned v, unsigned cnt, unsigned fl)
+{
+    const unsigned r = f_shiftN(op, B, v, cnt, &fl);
+    return (fl << 16) | r;
+}
+static inline __attribute__((always_inline)) unsigned f_shiftN(unsigned op, unsigned B, unsigned v, unsigned cnt, unsigned *fl)
 {
     const unsigned M = (1u << B) - 1u, S = 1u << (B - 1u);
     unsigned r, cf, f, mask = F_CF;
@@ -350,6 +342,12 @@ static __attribute__((noinline)) void slow_out(Pc98Adapter *A, unsigned port, un
     if (wide) A->bus.out16(A->bus.context, (uint16_t)port, (uint16_t)v);
     else A->bus.out8(A->bus.context, (uint16_t)port, (uint8_t)v);
 }
+#if F16_ASM   /* fast16_mini_rv.S port I/O: the first bus access of the instruction */
+unsigned f16x_in(Pc98Adapter *A, unsigned port, unsigned wide, unsigned fl, int32_t remv);
+void f16x_out(Pc98Adapter *A, unsigned port, unsigned wide, unsigned v, unsigned fl, int32_t remv);
+unsigned f16x_in(Pc98Adapter *A, unsigned port, unsigned wide, unsigned fl, int32_t remv) { return slow_in(A, port, wide, fl, remv, 1u); }
+void f16x_out(Pc98Adapter *A, unsigned port, unsigned wide, unsigned v, unsigned fl, int32_t remv) { slow_out(A, port, wide, v, fl, remv, 1u); }
+#endif
 /* instruction bytes through the bus (non-RAM, non-ROM code) */
 static __attribute__((noinline)) void slow_fetch(Pc98Adapter *A, uint32_t lin, uint8_t *win, unsigned fl, int32_t remv)
 {
@@ -358,9 +356,6 @@ static __attribute__((noinline)) void slow_fetch(Pc98Adapter *A, uint32_t lin, u
     void *fctx = A->bus.fetch8 ? A->bus.fetch_context : A->bus.context;
     slow_sync(A, fl, remv, 1);
     for (i = 0; i < 10; i++) win[i] = fetch(fctx, lin + i);
-#ifdef PC98_FAST16_STATS
-    pc98_fast16_slow_fetch[(lin >> 15) & 63u][A->itf ? (*A->itf != 0) : 0]++;
-#endif
 }
 
 /* segment register load; the 286 also refreshes the real-mode hidden cache */
@@ -550,11 +545,74 @@ static __attribute__((noinline)) int str1(Pc98Adapter *A, unsigned op, unsigned 
 
 static void optab_init(void);
 #include "fast16_mini.inc"
+#if F16_ASM
+#include "fast16_rv.h"
+#define F16A_CHK(v, f) _Static_assert((v) == __builtin_offsetof(Pc98Adapter, f), "fast16_rv.h: " #f);
+F16A_CHK(F16A_R, s.low.r) F16A_CHK(F16A_SEG, s.low.seg) F16A_CHK(F16A_FLAGS, s.low.flags) F16A_CHK(F16A_BASE, s.low.base)
+F16A_CHK(F16A_IRQINH, s.low.irq_inhibit) F16A_CHK(F16A_CACHE, mode.segments.cache) F16A_CHK(F16A_VALID, mode.segments.valid)
+F16A_CHK(F16A_MENU, menu) F16A_CHK(F16A_ROM, rom) F16A_CHK(F16A_ITF, itf) F16A_CHK(F16A_SLICEP, slice_left_p)
+F16A_CHK(F16A_IRQPROBE, irqprobe) F16A_CHK(F16A_IRQEND, irqend) F16A_CHK(F16A_MCKN, mck_n) F16A_CHK(F16A_MCKM, mck_m)
+F16A_CHK(F16A_MCKMAIN, mck_main) F16A_CHK(F16A_MCKT, mck_t) F16A_CHK(F16A_MOPCB, mo_pcb) F16A_CHK(F16A_MCKSHIFT, mck_shift)
+F16A_CHK(F16A_MOREM, mo_rem) F16A_CHK(F16A_MOOFF, mo_off) F16A_CHK(F16A_MOFL, mo_fl) F16A_CHK(F16A_MONRET, mo_nret)
+F16A_CHK(F16A_MOIP, mo_ip) F16A_CHK(F16A_MOEV, mo_ev) F16A_CHK(F16A_MOOV, mo_ov) F16A_CHK(F16A_MOROM, mo_rom)
+_Static_assert(sizeof(Pc98Descriptor286) == 8 && __builtin_offsetof(Pc98Descriptor286, limit) == 4 && __builtin_offsetof(Pc98Descriptor286, access) == 6, "descriptor layout");
+#undef F16A_CHK
+/* fast16_mini_rv.S: per index i, the handler of opcode i, the byte register offsets of the r/m and reg field of
+ * ModR/M i, PF of byte i, the clocks of opcode i (register form / no ModR/M, memory form) and its handler after a
+ * segment prefix (internal RAM: read every instruction) */
+typedef struct { const void *h; uint8_t rmb, regb, pf, cr, cm, pad[3]; const void *hov; } F16xRec;
+_Static_assert(sizeof(F16xRec) == 16 && __builtin_offsetof(F16xRec, rmb) == 4 && __builtin_offsetof(F16xRec, cr) == 7 &&
+               __builtin_offsetof(F16xRec, hov) == 12, "F16xRec layout");
+F16xRec f16x_rec[256] __attribute__((section(".dram1.f16x_rec"), aligned(16)));
+extern const void *const f16x_hdef[256], *const f16x_hov[256];
+extern const char f16x_h_cstep[], f16x_h_exit[], f16x_h_bailov[];
+void f16x_start(Pc98Adapter *A, const uint8_t *pc, int32_t rem, unsigned fl, const uint8_t *lim, uint8_t *ram);
+#define M_START(A_, P_, R_, F_, L_, N_, T_, M_) f16x_start((A_), (P_), (R_), (F_), (L_), (M_))
+#define M_TABOK(op) (f16x_rec[(op)].h != (const void *)f16x_h_exit)
+void f16x_cone(Pc98Adapter *A, const uint8_t *pc, int32_t rem, unsigned fl, unsigned nret);
+/* one instruction of an opcode the assembly does not have: the C mini handler, its batch ended right after it */
+void f16x_cone(Pc98Adapter *A, const uint8_t *pc, int32_t rem, unsigned fl, unsigned nret)
+{
+    (void)m_start(A, pc, rem, fl, pc + 1, nret, (const void *const *)mtab, A->ram);
+}
+static void f16x_init(void)
+{
+    unsigned i;
+    for (i = 0; i < 256; i++) {
+        F16xRec *const d = &f16x_rec[i];
+        const unsigned rm = i & 7u, reg = (i >> 3) & 7u;
+        d->h = f16x_hdef[i] ? f16x_hdef[i] : mtab[i] != m_exit ? (const void *)f16x_h_cstep : (const void *)f16x_h_exit;
+        d->hov = f16x_hov[i] ? f16x_hov[i] : (const void *)f16x_h_bailov;
+        d->rmb = (uint8_t)(((rm & 3u) << 1) | (rm >> 2));
+        d->regb = (uint8_t)(((reg & 3u) << 1) | (reg >> 2));
+        d->pf = par_tab[i];
+    }
+}
+/* the clocks of the CPU model (mini_models): ModR/M opcodes take mck_m, the others mck_n */
+static void f16x_clocks(const Pc98Adapter *A)
+{
+    unsigned op;
+    for (op = 0; op < 256; op++) {
+        const unsigned modrm = (op < 0x40u && (op & 7u) < 4u) || (op >= 0x80u && op <= 0x8fu) || op == 0xc0u || op == 0xc1u ||
+                               op == 0xc6u || op == 0xc7u || (op >= 0xd0u && op <= 0xd3u) || op == 0xf6u || op == 0xf7u || op >= 0xfeu;
+        f16x_rec[op].cr = modrm ? A->mck_m[op * 2u] : A->mck_n[op];
+        f16x_rec[op].cm = A->mck_m[op * 2u + 1u];
+    }
+}
+#else
+#define M_START m_start
+#endif
+#ifndef M_TABOK
+#define M_TABOK(op) (mtab[(op)] != m_exit)   /* the opcode at the batch start has a mini handler */
+#endif
 static void mini_models(Pc98Adapter *A, unsigned mi)
 {
     unsigned o;
     for (o = 0; o < 256; o++) { A->mck_n[o] = ckn[mi][o]; A->mck_m[o * 2] = ckm2[mi][o * 2]; A->mck_m[o * 2 + 1] = ckm2[mi][o * 2 + 1]; }
     A->mck_main = clock_main[mi]; A->mck_t = clock_taken[mi]; A->mck_shift = clock_shift[mi]; A->mck_mi = mi + 1u;
+#if F16_ASM
+    f16x_clocks(A);
+#endif
 }
 
 #define F16_MODEL 1

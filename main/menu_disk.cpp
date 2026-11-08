@@ -349,6 +349,8 @@ extern "C" char g_font_file[ROMNAME_LEN];
 static void save_settings(void);   // defined below; used by the HDD-eject reboot
 extern "C" void usb_msc_request(int mode);  // usb_msc.cpp: arm the USB Mode boot flag
 extern "C" bool screenshot_save(char *name, size_t cap);  // screenshot.cpp
+extern "C" bool fdd_ext_is(const char *name);
+extern "C" bool fdd_ext_mount(int drv, const char *path);
 extern "C" void sd_unmount(void);           // sd_tab5.cpp: leave the card idle
 // The full-screen modes indent their text to where the menu rows start.
 #define MODE_INDENT "  "
@@ -373,7 +375,8 @@ static int ext_match(const char *name, int drive) {
     e[i] = 0;
     if (drive == 2)
         return !strcmp(e, "hdi") || !strcmp(e, "nhd") || !strcmp(e, "thd") || !strcmp(e, "vhd");
-    return !strcmp(e, "nfd") || !strcmp(e, "d88") || !strcmp(e, "fdi") || !strcmp(e, "fdd") || !strcmp(e, "hdm");
+    return !strcmp(e, "nfd") || !strcmp(e, "d88") || !strcmp(e, "fdi") || !strcmp(e, "fdd") || !strcmp(e, "hdm") ||
+           !strcmp(e, "ftk");
 }
 
 // Rows 0..10 are all written below, so this repaints in place: no clear, no
@@ -620,6 +623,10 @@ static void apply_image(int drive, const char *path) {
     if (drive == 2) {
         // The HDD interfaces open g_settings.hdd_image[0] at the next reset (dev/sasi_bind.c).
         pcs_copy(g_settings.hdd_image[0], path ? path : "", sizeof(g_settings.hdd_image[0]));
+    } else if (path && fdd_ext_is(path)) {
+        if (!fdd_ext_mount(drive, path)) {
+            g_settings.fdd_image[drive][0] = ' ';
+        }
     } else if (path) {
         // Out, then in 0.4s later (drv_fd_tick), as a hand swapping
         // disks: DOS only rereads a drive it has seen go not-ready.
@@ -903,12 +910,15 @@ static void save_settings(void) {
         nvs_set_u8(nh, "line200", (uint8_t)g_line200);
         nvs_set_u8(nh, "soundfx", (uint8_t)audio_get_fx());
         nvs_set_u8(nh, "lamps", lcd_lamps_enabled() ? 1 : 0);
-        nvs_set_str(nh, "biosfile", g_bios_file);
-        nvs_set_str(nh, "fontfile", g_font_file);
-        // Current mounts (empty drive => empty string; restored as empty at boot).
-        nvs_set_str(nh, "fdd0", (const char *)g_settings.fdd_image[0]);
-        nvs_set_str(nh, "fdd1", (const char *)g_settings.fdd_image[1]);
-        nvs_set_str(nh, "hdd",  (const char *)g_settings.hdd_image[0]);
+        extern bool g_sd_ok;
+        if (g_sd_ok) {      // no card: every name reads as missing, keep what was stored
+            nvs_set_str(nh, "biosfile", g_bios_file);
+            nvs_set_str(nh, "fontfile", g_font_file);
+            // Current mounts (empty drive => empty string; restored as empty at boot).
+            nvs_set_str(nh, "fdd0", (const char *)g_settings.fdd_image[0]);
+            nvs_set_str(nh, "fdd1", (const char *)g_settings.fdd_image[1]);
+            nvs_set_str(nh, "hdd",  (const char *)g_settings.hdd_image[0]);
+        }
         nvs_commit(nh);
         nvs_close(nh);
     }
@@ -922,7 +932,7 @@ static int choose_image_drive(void) {
     static const int order[3] = { 2, 0, 1 };      // HDD first, as it always was
     auto usable = [](int d) {
         const char *p = (d == 2) ? (const char *)g_settings.hdd_image[0] : (const char *)g_settings.fdd_image[d];
-        return p[0] != 0;
+        return p[0] != 0 && !(d < 2 && fdd_ext_is(p));
     };
     int sel = 0;
     while (sel < 2 && !usable(order[sel])) {

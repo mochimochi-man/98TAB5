@@ -306,7 +306,6 @@ __attribute__((optimize("jump-tables", "tree-switch-conversion"))) static __attr
                 }
                 padd = setup + k * iter_clk;
                 rem -= (int32_t)padd;
-                COST_STR(0, k);
             } else {
                 /* device memory: publish the clock once, then each access (which may add its own wait
                  * states to g_cpu.slice_left) is followed by our own debit */
@@ -316,7 +315,6 @@ __attribute__((optimize("jump-tables", "tree-switch-conversion"))) static __attr
                     /* graphics VRAM (plain / GRCG): the whole run through one call (same effects as the per-word device writes) */
                     const int vm = A->vpage(dlo);
                     if (vm >= 0) k = A->vrun(da, step, n_it, w, use_src ? ram : NULL, sa, val, (unsigned)vm, (int32_t)(iter_clk + setup), (int32_t)iter_clk, remclk, off);
-                    COST_STR(2, k);
                     if (k) { sa += (uint32_t)(step * (int)k); da += (uint32_t)(step * (int)k); }
                 }
                 while (k < n_it && !(k && (int32_t)(*remclk - off) <= 0)) {
@@ -342,7 +340,6 @@ __attribute__((optimize("jump-tables", "tree-switch-conversion"))) static __attr
                 padd = setup + k * iter_clk;
                 rem = (int32_t)*remclk - off;
                 refresh = 1;
-                COST_STR(4, k);
             }
             if (use_src) si = (si + (unsigned)(step * (int)k)) & 0xffffu;
             di = (di + (unsigned)(step * (int)k)) & 0xffffu;
@@ -449,14 +446,6 @@ __attribute__((optimize("jump-tables", "tree-switch-conversion"))) static __attr
         }
     }
 str_done:
-#ifdef PC98_COST
-    {   /* string iteration histogram by source / destination class (0 RAM, 1 text VRAM, 2 graphics VRAM, 3 other) and op */
-        #define SCLS(a) ((a) < 0xa0000u ? 0u : (a) < 0xa4000u ? 1u : ((a) >= 0xa8000u && (a) < 0xc0000u) || ((a) >= 0xe0000u && (a) < 0xe8000u) ? 2u : 3u)
-        const unsigned sc = use_src ? SCLS(sbase + (r[6] & 0xffffu)) : 0u, dc = use_dst ? SCLS(ebase + (r[7] & 0xffffu)) : 0u;
-        if (dc == 2u && A->vpage) g_strm[(unsigned)(A->vpage(ebase + (r[7] & 0xffffu)) + 1)] += iters;
-        g_strx[(sc * 4u + dc) * 4u + ((op == 0xa4 || op == 0xa5) ? 0u : (op == 0xaa || op == 0xab) ? 1u : (op >= 0xa6 && op <= 0xaf) ? 2u : 3u)] += iters;
-    }
-#endif
     if (rep) r[1] = (uint16_t)cx;
     if (use_src) r[6] = (uint16_t)si;
     if (use_dst) r[7] = (uint16_t)di;
@@ -496,7 +485,7 @@ str_done:
 
 /* shift/rotate group: one arm per operation so the operation and the width are compile-time constants */
 #define SHIFT1_ARMS(B, v, res) switch (reg) {         case 0: res = f_shift1(0, B, v, &fl); break; case 1: res = f_shift1(1, B, v, &fl); break;         case 2: res = f_shift1(2, B, v, &fl); break; case 3: res = f_shift1(3, B, v, &fl); break;         case 4: res = f_shift1(4, B, v, &fl); break; case 5: res = f_shift1(5, B, v, &fl); break;         default: res = f_shift1(7, B, v, &fl); break; }
-#define SHIFTN_ARMS(B, v, res) switch (reg) {         case 0: res = cnt == 1u ? f_shift1(0, B, v, &fl) : f_shiftK(0, B, v, cnt, &fl); break;         case 1: res = cnt == 1u ? f_shift1(1, B, v, &fl) : f_shiftK(1, B, v, cnt, &fl); break;         case 2: res = cnt == 1u ? f_shift1(2, B, v, &fl) : f_shiftK(2, B, v, cnt, &fl); break;         case 3: res = cnt == 1u ? f_shift1(3, B, v, &fl) : f_shiftK(3, B, v, cnt, &fl); break;         case 4: res = cnt == 1u ? f_shift1(4, B, v, &fl) : f_shiftK(4, B, v, cnt, &fl); break;         case 5: res = cnt == 1u ? f_shift1(5, B, v, &fl) : f_shiftK(5, B, v, cnt, &fl); break;         default: res = cnt == 1u ? f_shift1(7, B, v, &fl) : f_shiftK(7, B, v, cnt, &fl); break; }
+#define SHIFTN_ARMS(B, v, res) switch (reg) {         case 0: res = cnt == 1u ? f_shift1(0, B, v, &fl) : f_shiftN(0, B, v, cnt, &fl); break;         case 1: res = cnt == 1u ? f_shift1(1, B, v, &fl) : f_shiftN(1, B, v, cnt, &fl); break;         case 2: res = cnt == 1u ? f_shift1(2, B, v, &fl) : f_shiftN(2, B, v, cnt, &fl); break;         case 3: res = cnt == 1u ? f_shift1(3, B, v, &fl) : f_shiftN(3, B, v, cnt, &fl); break;         case 4: res = cnt == 1u ? f_shift1(4, B, v, &fl) : f_shiftN(4, B, v, cnt, &fl); break;         case 5: res = cnt == 1u ? f_shift1(5, B, v, &fl) : f_shiftN(5, B, v, cnt, &fl); break;         default: res = cnt == 1u ? f_shift1(7, B, v, &fl) : f_shiftN(7, B, v, cnt, &fl); break; }
 
 /* the ModR/M fields are derived on use (nothing is computed for opcodes that do not need them) */
 #define mod (modrm >> 6)
@@ -525,7 +514,6 @@ int pc98_fast16_run_m(Pc98Adapter *A, int32_t budget, unsigned max_insn, unsigne
     const uint8_t *p;
     uint8_t win[10];
     F16Ctx x;
-    COST_DECL
 
     if (!optab_ready) optab_init();
     if (!mtab_ready) mini_init();
@@ -541,7 +529,6 @@ int pc98_fast16_run_m(Pc98Adapter *A, int32_t budget, unsigned max_insn, unsigne
     (void)sy;
     if (!stop && !inh) goto mini_enter;
 next_insn:
-    COST_T0();
     ovr = 4; rep = 0;
     if (ip0 >= 0xfff0u) goto bail;
     cs_lin = c->base[SG_CS] + ip0;
@@ -583,7 +570,6 @@ next_insn:
         }
     }
 
-    COST_T1();
     switch ((uint8_t)op) {
     /* ---- ALU r/m,r  r,r/m  acc,imm ---- */
     /* one case per opcode: the operation and the form are compile-time constants inside each */
@@ -783,9 +769,9 @@ next_insn:
             if (!v30) cnt &= 31u;
             if (!cnt) NEXT;
             v = GET8(rm);
-            if (reg == 0) res = cnt == 1u ? f_shift1(0, 8, v, &fl) : f_shiftK(0, 8, v, cnt, &fl);
-            else if (reg == 1) res = cnt == 1u ? f_shift1(1, 8, v, &fl) : f_shiftK(1, 8, v, cnt, &fl);
-            else if (reg == 2) res = cnt == 1u ? f_shift1(2, 8, v, &fl) : f_shiftK(2, 8, v, cnt, &fl);
+            if (reg == 0) res = cnt == 1u ? f_shift1(0, 8, v, &fl) : f_shiftN(0, 8, v, cnt, &fl);
+            else if (reg == 1) res = cnt == 1u ? f_shift1(1, 8, v, &fl) : f_shiftN(1, 8, v, cnt, &fl);
+            else if (reg == 2) res = cnt == 1u ? f_shift1(2, 8, v, &fl) : f_shiftN(2, 8, v, cnt, &fl);
             else SHIFTN_ARMS(8, v, res);
             SET8(rm, res);
             NEXT;
@@ -975,7 +961,6 @@ next_insn:
 commit:
     completed = 1; anyc = 1;
 commit_c:
-    COST_T2();
     ip0 = nip;
     rem -= (int32_t)clk;
     nret++;
@@ -1003,24 +988,17 @@ commit_c:
         }
         if (rem <= 0 || stop) goto finish;
     }
-    COST_T3();
     if (__builtin_expect(!inh, 1)) goto mini_enter;
     goto next_insn;
 mini_enter:
     {   /* run the hot opcodes as threaded handlers (fast16_mini.inc) until one of them hands an instruction back */
         const uint32_t cb = c->base[SG_CS];
         const uint32_t cw = M_CSWIN(cb);
-        if (cw > ip0 && ip0 < 0xfff0u && mtab[ram[cb + ip0]] != m_exit) {
+        if (cw > ip0 && ip0 < 0xfff0u && M_TABOK(ram[cb + ip0])) {
             const uint8_t *const pcb = ram + cb;
             const uint32_t span = cw < 0xfff0u ? cw : 0xfff0u;
             A->mo_pcb = pcb; A->mo_off = off; A->mo_ev = 0; A->mo_rom = cb >= 0xe8000u;
-#ifdef PC98_COST
-            { unsigned mc0, mi0; __asm__ volatile("csrr %0, 0xb00" : "=r"(mc0)); __asm__ volatile("csrr %0, 0xb02" : "=r"(mi0));
-              (void)m_start(A, pcb + ip0, rem, fl, pcb + span, 0, (const void *const *)mtab, ram);
-              { unsigned mc1, mi1; __asm__ volatile("csrr %0, 0xb00" : "=r"(mc1)); __asm__ volatile("csrr %0, 0xb02" : "=r"(mi1)); g_cost[11] += mc1 - mc0; g_cost[12] += mi1 - mi0; g_cost[13] += A->mo_nret; g_cost[14]++; } }
-#else
-            (void)m_start(A, pcb + ip0, rem, fl, pcb + span, 0, (const void *const *)mtab, ram);
-#endif
+            (void)M_START(A, pcb + ip0, rem, fl, pcb + span, 0, (const void *const *)mtab, ram);
             ip0 = A->mo_ip;
             rem = A->mo_rem; fl = A->mo_fl;
             if (A->mo_nret) { nret += A->mo_nret; anyc = 1; }

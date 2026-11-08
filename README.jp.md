@@ -53,16 +53,9 @@ Tab5 に挿入された microSD を PC のフォルダとしてマウントで�
 リアルモードのソフトが一部動作します。プロテクトモードには対応しません。
 CPU 判定には 286 として応答します。
 
-### np2 TAB5 から廃止されたもの
-
-GreaseWeazle モードは廃止しました。エミュレーターの成熟度が想定した水準に至っていなかったため、
-直接ディスクを読むメリットが少なかったことと、ある懸念が払拭できないことから、本機能の実装継続は
-適切ではないと判断しました。
-
 ### 音源モード
 
-**FM Sound** は **Original, Hall, Synthesizer (HVY), Orchestra (HVY)** の順です。(HVY) は処理が重いことを示します。従来の合成音色はSynthesizerとして残し、Orchestraは小容量の実楽器サンプルに置き換えます。Warmは削除しました。
-既存Hallの残響も併用します。サンプルの出典は [components/pc98core/sound/samples/](components/pc98core/sound/samples/) にあります。
+**FM Sound** は **Original, Hall, Synthesizer (HVY), Orchestra (HVY)** の順です。Orchestraは小容量の実楽器サンプルに置き換えます。サンプルの出典は [components/pc98core/sound/samples/](components/pc98core/sound/samples/) にあります。
 F12のClock Familyで8MHz系／10MHz系を選択でき、Resetで適用します。
 
 ## 2. ビルド方法
@@ -104,7 +97,7 @@ Windows なら `COMn` です。Tab5 の USB-C ポートは USB-Serial-JTAG と�
 アプリを含む結合イメージを書き込みます。
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.1.0-20261103.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.1.9-20261106.bin
 ```
 
 同じパーティション構成から更新する場合は、アプリ単体を書き込みます。

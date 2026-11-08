@@ -43,11 +43,6 @@ static StreamBufferHandle_t s_ring = nullptr;   // core1 -> core0 PCM stream (by
 static esp_codec_dev_handle_t s_spk = nullptr;  // BSP speaker codec
 static int s_volume = 70;                       // ES8388 output level, 0-100
 
-extern "C" volatile uint32_t g_spk_lost, g_spk_loads, g_spk_ctls, g_spk_same;   // speaker.c: beeper changes dropped on a full log
-extern "C" volatile int g_audio_peak = 0;   // max |sample| (>32767 = clipping)
-extern "C" volatile int g_audio_drops = 0;
-static volatile int g_audio_reprime = 0;   // the ring ran dry and the cushion is rebuilt (a gap)  // stereo frames the ring refused
-extern "C" volatile int g_audio_under = 0;  // ring-empty events (crackle)
 
 // ---- sound effects ----------------------------------------------------------
 // The FM chip's output reaches the speaker as hard as it left the chip: at a
@@ -302,11 +297,7 @@ static void audio_task(void *arg) {
             primed = true;
         }
         size_t n = xStreamBufferReceive(s_ring, rx + carry, sizeof(rx) - carry, pdMS_TO_TICKS(100));
-        if (n > 0 && n + carry < sizeof(rx)) {
-            g_audio_reprime++;       // short read: the cushion is low, but what came is played on (stopping to refill was the gap)
-        }
         if (n == 0) {
-            g_audio_under++;
             primed = false;
             continue;
         }
@@ -426,32 +417,6 @@ extern "C" bool audio_init(int rate, int maxframes) {
     return true;
 }
 
-// Development-only peak log: max |sample| of the FM/SSG mix and of the beep
-// (dry) path since the last report. Written and read on the emu task only.
-extern "C" { extern volatile long long g_prof_snd, g_prof_snd_n; }
-extern "C" { extern volatile long long g_prof_snd, g_prof_snd_n; }
-static int s_pk_fm = 0, s_pk_beep = 0;
-extern "C" void audio_peak_report(void) {
-    static int64_t next = 0;
-    const int64_t now = esp_timer_get_time();
-    if (next == 0) { next = now + 10000000; return; }
-    if (now < next) return;
-    next = now + 10000000;
-    const int out = (s_pk_fm > s_pk_beep ? s_pk_fm : s_pk_beep);
-    // synth_us = mean snd_catch_up time per emulated frame since the last report (independent of DEBUG_PERF_LOG)
-    static long long last_us = 0, last_n = 0;
-    const long long du = g_prof_snd - last_us, dn = g_prof_snd_n - last_n;
-    last_us = g_prof_snd; last_n = g_prof_snd_n;
-    static uint32_t s_spk_lost_prev;
-    ets_printf("AUDIO peak fm=%d beep=%d out=%d synth_us=%d frames=%d spklost=%u under=%d reprime=%d drops=%d\n", s_pk_fm, s_pk_beep, out > 32768 ? 32768 : out,
-               dn > 0 ? (int)(du / dn) : 0, (int)dn, (unsigned)(g_spk_lost - s_spk_lost_prev), g_audio_under, g_audio_reprime, g_audio_drops);
-    g_audio_under = 0; g_audio_reprime = 0; g_audio_drops = 0;
-    s_spk_lost_prev = g_spk_lost;
-    { static uint32_t pl, pc, ps; ets_printf("SPK loads=%u ctls=%u same=%u\n", (unsigned)(g_spk_loads - pl), (unsigned)(g_spk_ctls - pc), (unsigned)(g_spk_same - ps));
-      pl = g_spk_loads; pc = g_spk_ctls; ps = g_spk_same; }
-    s_pk_fm = s_pk_beep = 0;
-}
-
 // ---- core 1: convert the mixer's SINT32 block and enqueue ----------------------
 extern "C" void audio_write_s32(const int32_t *pcm, const int32_t *dry, int frames) {
     if (!s_ok || !s_ring || !s_buf || !pcm || frames <= 0) {
@@ -461,11 +426,9 @@ extern "C" void audio_write_s32(const int32_t *pcm, const int32_t *dry, int fram
         frames = s_bufframes;
     }
     const int n = frames * 2;
-    g_audio_peak = simd_s32_to_s16(pcm, s_buf, n, g_audio_peak);
-    s_pk_fm = simd_s32_to_s16(pcm, s_buf, n, s_pk_fm);
+    simd_s32_to_s16(pcm, s_buf, n, 0);
     if (dry) {
-        g_audio_peak = simd_s32_to_s16(dry, s_dry16, n, g_audio_peak);
-        s_pk_beep = simd_s32_to_s16(dry, s_dry16, n, s_pk_beep);
+        simd_s32_to_s16(dry, s_dry16, n, 0);
     } else {
         memset(s_dry16, 0, (size_t)n * sizeof(int16_t));
     }
@@ -482,13 +445,9 @@ extern "C" void audio_write_s32(const int32_t *pcm, const int32_t *dry, int fram
     // everything after it played as noise - left and right, high and low
     // bytes all crossed - until another cut happened to put it back.
     if (xStreamBufferSpacesAvailable(s_ring) < bytes) {
-        g_audio_drops += frames;
         return;
     }
-    const size_t sent = xStreamBufferSend(s_ring, s_frames, bytes, 0);
-    if (sent < bytes) {
-        g_audio_drops += (int)((bytes - sent) / RING_FRAME);
-    }
+    xStreamBufferSend(s_ring, s_frames, bytes, 0);
 }
 
 // ---- volume ---------------------------------------------------------------

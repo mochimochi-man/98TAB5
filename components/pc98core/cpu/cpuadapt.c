@@ -13,31 +13,16 @@
 #include "menu_reset.h"
 #include "real286.h"
 #include "mode286.h"
+#include "protected286.h"
+#include "alu.h"
 #include <string.h>
 
 extern int ets_printf(const char *fmt, ...);
 
-#ifdef PC98_PROF
-#include "cpuprof.h"
-void pc98_prof_pre(const Pc98Adapter *A);
-void pc98_prof_post(const Pc98Adapter *A, unsigned path);
-void pc98_prof_port(unsigned out, unsigned port);
-void pc98_prof_irq(unsigned vec);
-void pc98_prof_stop(void);
-void pc98_prof_fault(unsigned vec, int trap);
-#define PROFH(x) x
-#else
-#define PROFH(x) ((void)0)
-#endif
 #include "clock_tables.inc"
 #include "clock_tables386.inc"
 
 Pc98Adapter g_cpuad;
-#ifdef PC98_PROF
-#define PROF_ONE 1
-#else
-#define PROF_ONE 0
-#endif
 
 /* ---- bus: straight onto bus.c / iobus.c; RAM below A0000h stays inline ---- */
 static uint8_t rd8(void *c, uint32_t a) { (void)c; return a < 0xa4000u ? mem[a] : (uint8_t)bus_rd8(a); }
@@ -63,10 +48,10 @@ static uint8_t fetch8(void *c, uint32_t a)
     A->nfetch++;
     return v;
 }
-static uint8_t in8(void *c, uint16_t p) { (void)c; PROFH(pc98_prof_port(0, p)); return (uint8_t)io_in8(p); }
-static uint16_t in16(void *c, uint16_t p) { (void)c; PROFH(pc98_prof_port(0, p)); return (uint16_t)io_in16(p); }
-static void out8(void *c, uint16_t p, uint8_t v) { (void)c; PROFH(pc98_prof_port(1, p)); io_out8(p, v); }
-static void out16(void *c, uint16_t p, uint16_t v) { (void)c; PROFH(pc98_prof_port(1, p)); io_out16(p, v); }
+static uint8_t in8(void *c, uint16_t p) { (void)c; return (uint8_t)io_in8(p); }
+static uint16_t in16(void *c, uint16_t p) { (void)c; return (uint16_t)io_in16(p); }
+static void out8(void *c, uint16_t p, uint8_t v) { (void)c; io_out8(p, v); }
+static void out16(void *c, uint16_t p, uint16_t v) { (void)c; io_out16(p, v); }
 /* Instructions complete between DMA ticks, so the bus window is always atomic. */
 static void lock_bus(void *c, unsigned on) { (void)c; (void)on; }
 
@@ -244,7 +229,7 @@ static void stop_machine(Pc98Adapter *A, const char *why)
 {
     const Pc98Cpu16State *c = &A->s.low;
     unsigned i;
-    A->stopped = 1; PROFH(pc98_prof_stop());
+    A->stopped = 1;
     A->stop_pc = c->base[PC98_CS] + c->ip;
     for (i = 0; i < 8; i++) A->stop_bytes[i] = mem[(A->stop_pc + i) & 0x1fffffu];
 #if !PC98_FULLCPU
@@ -298,7 +283,6 @@ enum Pc98StepResult pc98_adapt_step(unsigned *clocks)
     else if (A->menu == 2) r = pc98_cpu_menu_step(2, &A->mode, &A->s, &A->bus);
     else r = pc98_cpu_step16(c, b);
     *clocks = 0;
-    if (r == PC98_STEP_TRAP || r == PC98_STEP_FAULT) PROFH(pc98_prof_fault(c->fault.vector, r == PC98_STEP_TRAP));
     switch (r) {
     case PC98_STEP_OK:
         *clocks = clocks_of(A, ip0, cx0, c->ip, cl0);
@@ -326,7 +310,7 @@ static int try_irq(Pc98Adapter *A, unsigned vector)
     enum Pc98InterruptResult r = A->menu == 0 ? pc98_cpu_interrupt16(c, b, vector, PC98_INT_IRQ)
                                : A->menu == 2 ? pc98_cpu_menu_interrupt(2, &A->mode, &A->s, &A->bus, vector, PC98_INT_IRQ)
                                               : pc98_cpu_mode_interrupt286(&A->mode, c, b, vector, PC98_INT_IRQ);
-    if (r == PC98_INT_DELIVERED) { PROFH(pc98_prof_irq(vector)); g_cpu.slice_left -= clock_interrupt[MCOL(A)]; return 1; }
+    if (r == PC98_INT_DELIVERED) { g_cpu.slice_left -= clock_interrupt[MCOL(A)]; return 1; }
     if (r == PC98_INT_FAULT) { if (!deliver_fault(A)) stop_machine(A, "IRQ delivery fault"); return 1; }
     if (r == PC98_INT_UNSUPPORTED) { stop_machine(A, "IRQ delivery unsupported"); return 1; }
     return 0;
@@ -340,56 +324,11 @@ void pc98_adapt_interrupt(unsigned vector)
     if (!try_irq(A, vector)) A->pending = vector | 0x100u;
 }
 
-#ifdef PC98_FAST16_STATS
-/* Host profiling aid: instructions the fast path handed to the reference, by opcode. */
-#include <stdio.h>
-static unsigned long long f16_fb[256], f16_inel, f16_total_fb;
-static void f16_count_fallback(const Pc98Adapter *A, int ineligible)
-{
-    unsigned i, op = 0;
-    uint32_t pc = A->s.low.base[PC98_CS] + A->s.low.ip;
-    if (ineligible) { f16_inel++; return; }
-    for (i = 0; i < 8; i++) {
-        op = mem[(pc + i) & 0xfffffu];
-        if (!(op == 0x26 || op == 0x2e || op == 0x36 || op == 0x3e || op == 0xf2 || op == 0xf3 || op == 0xf0 || (op >= 0x64 && op <= 0x67))) break;
-    }
-    f16_fb[op]++; f16_total_fb++;
-}
-extern unsigned long long pc98_fast16_slow_fetch[64][2];
-__attribute__((destructor)) static void f16_report(void)
-{
-    unsigned i, j, best;
-    unsigned long long shown = 0;
-    if (!f16_total_fb && !f16_inel) return;
-    fprintf(stderr, "FAST16 fallback: eligible-but-refused %llu, ineligible-state steps %llu\n", f16_total_fb, f16_inel);
-    for (j = 0; j < 16; j++) {
-        best = 0;
-        for (i = 1; i < 256; i++) if (f16_fb[i] > f16_fb[best]) best = i;
-        if (!f16_fb[best]) break;
-        fprintf(stderr, "  op %02x: %llu\n", best, f16_fb[best]);
-        shown += f16_fb[best]; f16_fb[best] = 0;
-    }
-    (void)shown;
-    for (i = 0; i < 64; i++) if (pc98_fast16_slow_fetch[i][0] || pc98_fast16_slow_fetch[i][1]) fprintf(stderr, "  bus-fetched code page %02x (%05x): itf0=%llu itf1=%llu\n", i, i << 15, pc98_fast16_slow_fetch[i][0], pc98_fast16_slow_fetch[i][1]);
-}
-#endif
 
-/* 7c-1b device profile, shown on the PCS line: fast16 batches, reference steps. */
-unsigned g_cpuad_runs, g_cpuad_slow;
-void pc98_adapt_prof(unsigned long long *ins, unsigned *runs, unsigned *slow)
-{
-    *ins = g_cpuad.retired; *runs = g_cpuad_runs; *slow = g_cpuad_slow;
-}
+#include "pmfast.inc"
 
-#ifdef PC98_COST
-extern uint32_t g_cost[16];
-#define COST_RDI() ({ unsigned _v; __asm__ volatile("csrr %0, 0xb02" : "=r"(_v)); _v; })
-#endif
 void pc98_adapt_exec(void)
 {
-#ifdef PC98_COST
-    unsigned ce0 = COST_RDI();
-#endif
     Pc98Adapter *A = &g_cpuad;
     unsigned dma;
     if (!A->active || A->stopped) { if (g_cpu.slice_left > 0) g_cpu.slice_left = -1; return; }
@@ -407,41 +346,23 @@ void pc98_adapt_exec(void)
             A->fast_ok = pc98_fast16_eligible(A);
 #endif
         }
-#ifdef PC98_PROF
-        unsigned prof_path = A->fast_ok ? 1u : 2u;
-        pc98_prof_pre(A);
-#endif
 #ifndef PC98_FAST16_DISABLE
         if (A->fast_ok) {
             /* DMA runs between instructions: one instruction (one REP iteration) per call */
-            g_cpuad_runs++;
-#ifdef PC98_COST
-            unsigned cr0 = COST_RDI(); int cres = pc98_fast16_run(A, (dma || PROF_ONE) ? 1 : (int32_t)g_cpu.slice_left, ~0u, &clk); g_cost[9] += COST_RDI() - cr0; g_cost[10]++;
-            if (cres) {
-#else
-            if (pc98_fast16_run(A, (dma || PROF_ONE) ? 1 : (int32_t)g_cpu.slice_left, ~0u, &clk)) {
-#endif
-                PROFH(pc98_prof_post(A, 0));
+            if (pc98_fast16_run(A, dma ? 1 : (int32_t)g_cpu.slice_left, ~0u, &clk)) {
                 /* fast16 already debited g_cpu.slice_left (A->slice_left_p) */
                 if (A->irqend) { A->irqend = 0; IRQ_END_SLICE(); }
                 if (A->s.low.flags & 0x100u) { A->fast_ok = 0; dma_cycle(); }
                 else if (dma) { dma_cycle(); }
                 continue;
             }
-#ifdef PC98_FAST16_STATS
-            f16_count_fallback(A, 0);
-#endif
         }
-#ifdef PC98_FAST16_STATS
-        else f16_count_fallback(A, 1);
 #endif
-#endif
-        g_cpuad_slow++;
         { uint32_t pc_ = (A->s.low.base[PC98_CS] + A->s.low.ip) & 0xfffffu; unsigned o_ = mem[pc_]; unsigned wasdi_ = !(A->s.low.flags & 0x200u);
           irqop = (o_ == 0xcf || o_ == 0x9d || (o_ == 0xfb && wasdi_)); }
-        r = pc98_adapt_step(&clk);
+        if (A->menu == 1 && (A->mode.system.msw & 1u) && pm_fast_step(A, &clk)) r = PC98_STEP_OK;
+        else r = pc98_adapt_step(&clk);
         if (irqop && (A->s.low.flags & 0x200u) && pic_pending()) IRQ_END_SLICE();
-        PROFH(pc98_prof_post(A, prof_path));
 #ifndef PC98_FAST16_DISABLE
         A->fast_ok = pc98_fast16_eligible(A);
 #endif
@@ -455,7 +376,4 @@ void pc98_adapt_exec(void)
         if (dma || (A->s.low.flags & 0x100u)) { dma_cycle(); }
     } while (g_cpu.slice_left > 0);
     pc98_adapt_mirror();
-#ifdef PC98_COST
-    g_cost[8] += COST_RDI() - ce0;
-#endif
 }

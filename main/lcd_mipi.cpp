@@ -240,7 +240,6 @@ static void clear_borders(void) {
     }
 }
 
-volatile unsigned long long g_prof_bt, g_prof_bn;
 static volatile uint8_t s_job_posted;
 static void blit_task(void *arg) {
     (void)arg;
@@ -249,7 +248,7 @@ static void blit_task(void *arg) {
         xQueueReceive(s_blit_q, &j, portMAX_DELAY);
         if (j.fn) { j.fn(j.arg); s_done_seq = j.seq; }
         if (j.src) {
-            { int64_t t0 = esp_timer_get_time(); do_blit(j.src); g_prof_bt += (unsigned long long)(esp_timer_get_time() - t0); g_prof_bn++; }
+            do_blit(j.src);
         }
         s_blit_busy = (__atomic_sub_fetch(&s_pend, 1, __ATOMIC_SEQ_CST) > 0);
     }
@@ -735,7 +734,6 @@ extern "C" void lcd_menu_blank_rows(int first, int last) {
 // Stage 11: the screen composite (RGB565 from the index planes, pc98core/video/render.c) runs on this core right before the blit,
 // so core 1 only hands over the job and goes on emulating. Returns nonzero when the job was taken.
 extern "C" uint8_t *pc98_framebuffer(void);
-volatile unsigned g_prof_dn, g_prof_dmax; volatile unsigned long long g_prof_dsum; static int64_t s_last_post;
 extern "C" int lcd_post_composite(void (*fn)(const void *), const void *arg) {
     uint8_t *fb = pc98_framebuffer();
     if (!s_fb || !fb) {
@@ -744,7 +742,6 @@ extern "C" int lcd_post_composite(void (*fn)(const void *), const void *arg) {
     while (s_pend >= 2) {
         vTaskDelay(1);
     }
-    { int64_t now = esp_timer_get_time(); if (s_last_post) { unsigned d = (unsigned)(now - s_last_post); g_prof_dn++; g_prof_dsum += d; if (d > g_prof_dmax) g_prof_dmax = d; } s_last_post = now; }
     BlitJob j = { fn, arg, fb, ++s_post_seq };
     s_job_posted = 1;
     s_blit_src = fb;

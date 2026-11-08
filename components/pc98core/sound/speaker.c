@@ -37,7 +37,6 @@ typedef struct {
 static Change s_log[LOG_SIZE];
 static volatile UINT s_wr, s_rd;
 static UINT s_vol = 2;
-volatile UINT32 g_spk_lost, g_spk_loads, g_spk_ctls, g_spk_same;	/* diagnostics: dropped changes, count loads, control words, loads of the running count */
 static SINT32 s_hp_coef;	/* Q16 */
 
 /* what the renderer is at */
@@ -60,7 +59,7 @@ static void log_change(UINT kind, UINT mode, UINT32 n)
 
 	if (!snd_rate()) return;
 	if (!snd_is_async() && s_wr - s_rd >= LOG_SIZE * 3 / 4) snd_catch_up();
-	if (s_wr - __atomic_load_n(&s_rd, __ATOMIC_ACQUIRE) >= LOG_SIZE) { g_spk_lost++; return; }
+	if (s_wr - __atomic_load_n(&s_rd, __ATOMIC_ACQUIRE) >= LOG_SIZE) return;
 	c = &s_log[s_wr % LOG_SIZE];
 	c->t = now();
 	c->kind = (UINT8)kind;
@@ -77,14 +76,11 @@ static void apply(const Change *c)
 {
 	switch (c->kind) {
 	case E_CONTROL:
-		g_spk_ctls++;
 		r.pending = 0;
 		r.mode = c->mode;
 		r.waiting = 1;
 		break;
 	case E_LOAD:
-		g_spk_loads++;
-		if (!r.waiting && r.mode == c->mode && r.n == (c->n ? c->n : 1)) g_spk_same++;
 		if (!r.waiting && (r.mode == 2 || r.mode == 3) && c->mode == r.mode) {
 			/* the i8253 goes on with the running period and reloads at its end: restarting here would cut the wave */
 			const UINT32 per = r.n * g_mach.clock_mul;

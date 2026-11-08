@@ -37,7 +37,10 @@ extern "C" void fdd_media_flush_all(void);   // pc98core/media/drives.c: write b
 // is what made USB Mode report "no SD card" on a machine whose card was fine,
 // and only on some attempts - it depended on what the card happened to be
 // doing at the moment of the reset.
+extern "C" void fdd_ext_shutdown(void);
+
 extern "C" void sd_unmount(void) {
+    fdd_ext_shutdown();
     // Stage 4-3: a D88 image keeps the track the floppy controller wrote to in memory until the
     // controller moves to another track. Every route out of the emulator that hands the card away
     // (USB Mode, the reboots of the menu) comes through here, so write those tracks back first.

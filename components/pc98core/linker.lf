@@ -26,4 +26,5 @@ entries:
     cpuadapt:stop_machine (default)
     cpuadapt:deliver_fault (default)
     cpuadapt:current_bus (default)
+    cpuadapt:pm_fast_step (default)
     cpuadapt (pc98core_iram)

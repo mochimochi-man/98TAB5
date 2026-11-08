@@ -37,11 +37,16 @@
         if ((AOP) != 7) { if ((FORM) & 2u) SET8(reg, res); else if (mem) M_WR8(lin, res); else SET8(rm, res); } \
     } \
     MNEXT(nb, MCKM(OPC, mem)); }
+#if F16_ASM && !MINI_OV   /* fast16_mini_rv.S has the default-segment forms */
+#define M_ALU_ROW4(o0, o1, o2, o3, AOP)
+#else
 #define M_ALU_ROW4(o0, o1, o2, o3, AOP) M_ALU_RM(o0, AOP, 0) M_ALU_RM(o1, AOP, 1) M_ALU_RM(o2, AOP, 2) M_ALU_RM(o3, AOP, 3)
+#endif
 M_ALU_ROW4(0x00, 0x01, 0x02, 0x03, 0) M_ALU_ROW4(0x08, 0x09, 0x0a, 0x0b, 1) M_ALU_ROW4(0x10, 0x11, 0x12, 0x13, 2) M_ALU_ROW4(0x18, 0x19, 0x1a, 0x1b, 3)
 M_ALU_ROW4(0x20, 0x21, 0x22, 0x23, 4) M_ALU_ROW4(0x28, 0x29, 0x2a, 0x2b, 5) M_ALU_ROW4(0x30, 0x31, 0x32, 0x33, 6) M_ALU_ROW4(0x38, 0x39, 0x3a, 0x3b, 7)
 
 /* ---- 80-83: ALU r/m, imm ---- */
+#if !(F16_ASM && !MINI_OV)   /* fast16_mini_rv.S has the default-segment forms */
 MH(MN(grp1_b))   /* 80 82 */
 {
     uint16_t *const r = A->s.low.r; MMODRM(); unsigned res, a, b = pc[nb];
@@ -86,7 +91,9 @@ MH(MN(grp1_w))   /* 81 83 */
 MH(MN(84)) { uint16_t *const r = A->s.low.r; MMODRM(); M_CHK_R8(); (void)f_log8((mem ? (unsigned)ram[lin] : GET8(rm)) & GET8(reg), &fl); MNEXT(nb, MCKM(0x84, mem)); }
 MH(MN(85)) { uint16_t *const r = A->s.low.r; MMODRM(); M_CHK_R16(); (void)f_log16((mem ? M_RD16(lin) : r[rm]) & r[reg], &fl); MNEXT(nb, MCKM(0x85, mem)); }
 
+#endif
 /* ---- MOV ---- */
+#if !F16_ASM
 MH(MN(88)) { uint16_t *const r = A->s.low.r; MMODRM();
     if (mem && lin >= 0xa0000u) { if (!M_GVRAM(lin)) MBAIL(); M_GVWR8(lin, GET8(reg)); MNEXT(nb, MCKM(0x88, mem)); }
     if (mem) M_WR8(lin, GET8(reg)); else SET8(rm, GET8(reg)); MNEXT(nb, MCKM(0x88, mem)); }
@@ -95,6 +102,8 @@ MH(MN(8a)) { uint16_t *const r = A->s.low.r; MMODRM();
     if (mem && lin >= 0xa4000u) { if (!M_GVRAM(lin)) MBAIL(); SET8(reg, M_GVRD8(lin)); MNEXT(nb, MCKM(0x8a, mem)); }
     { const unsigned v = mem ? (unsigned)ram[lin] : GET8(rm); SET8(reg, v); } MNEXT(nb, MCKM(0x8a, mem)); }
 MH(MN(8b)) { uint16_t *const r = A->s.low.r; MMODRM(); M_CHK_R16(); { const unsigned v = mem ? M_RD16(lin) : r[rm]; r[reg] = (uint16_t)v; } MNEXT(nb, MCKM(0x8b, mem)); }
+#endif
+#if !(F16_ASM && !MINI_OV)
 MH(MN(8c))   /* MOV r/m16, sreg */
 {
     uint16_t *const r = A->s.low.r; MMODRM();
@@ -146,8 +155,10 @@ MH(MN(mova))   /* A0-A3: accumulator <-> [moffs] */
     }
     MNEXT(3, MCKN(op));
 }
+#endif
 
 /* ---- FE / FF / F6 / F7 ---- */
+#if !(F16_ASM && !MINI_OV)
 MH(MN(fe))
 {
     uint16_t *const r = A->s.low.r; MMODRM(); unsigned v, res;
@@ -210,7 +221,9 @@ MH(MN(f7))   /* TEST NOT NEG on r/m16 */
     MNEXT(nb, clk);
 }
 
+#endif
 /* ---- shifts / rotates: by 1 (D0 D1), by CL (D2 D3), by imm8 (C0 C1) ---- */
+#if !(F16_ASM && !MINI_OV)
 MH(MN(d0))
 {
     uint16_t *const r = A->s.low.r; MMODRM(); unsigned v, res;
@@ -241,6 +254,7 @@ MH(MN(d1))
     if (mem) M_WR16(lin, res); else r[rm] = (uint16_t)res;
     MNEXT(nb, MCKM(0xd1, mem));
 }
+#endif
 /* C0 C1 D2 D3: count handling and clocks exactly as the generic loop */
 #define M_SHIFTN(NAME, OPC, WORD) MH(MN(NAME)) { \
     uint16_t *const r = A->s.low.r; MMODRM(); unsigned cnt, extra, v, res; \
@@ -250,9 +264,9 @@ MH(MN(d1))
     else { cnt = r[1] & 255u; extra = (unsigned)A->mck_shift[2u + ((OPC) & 1u)] * (cnt & 31u); } \
     if (!v30) cnt &= 31u; \
     if (!cnt) { if (!v30 && mem) MBAIL(); MNEXT(nb, MCKM(OPC, mem) + extra); } \
-    if (WORD) { M_CHK_RW16(); v = mem ? M_RD16(lin) : r[rm]; res = f_shift(reg, 16, v, cnt, &fl); \
+    if (WORD) { M_CHK_RW16(); v = mem ? M_RD16(lin) : r[rm]; { const uint32_t rv_ = f_shift_v(reg, 16, v, cnt, fl); res = rv_ & 0xffffu; fl = rv_ >> 16; } \
         if (mem) M_WR16(lin, res); else r[rm] = (uint16_t)res; } \
-    else { M_CHK_RW8(); v = mem ? (unsigned)ram[lin] : GET8(rm); res = f_shift(reg, 8, v, cnt, &fl); \
+    else { M_CHK_RW8(); v = mem ? (unsigned)ram[lin] : GET8(rm); { const uint32_t rv_ = f_shift_v(reg, 8, v, cnt, fl); res = rv_ & 0xffffu; fl = rv_ >> 16; } \
         if (mem) M_WR8(lin, res); else SET8(rm, res); } \
     MNEXT(nb, MCKM(OPC, mem) + extra); }
 M_SHIFTN(c0, 0xc0u, 0) M_SHIFTN(c1, 0xc1u, 1) M_SHIFTN(d2, 0xd2u, 0) M_SHIFTN(d3, 0xd3u, 1)
@@ -260,6 +274,8 @@ M_SHIFTN(c0, 0xc0u, 0) M_SHIFTN(c1, 0xc1u, 1) M_SHIFTN(d2, 0xd2u, 0) M_SHIFTN(d3
 static void MN(register)(mh_t *t)
 {
     unsigned i;
+    (void)i;
+#if !(F16_ASM && !MINI_OV)
     for (i = 0; i < 0x40; i += 8) {
         static mh_t const alu[8][4] = { { MN(0x00), MN(0x01), MN(0x02), MN(0x03) }, { MN(0x08), MN(0x09), MN(0x0a), MN(0x0b) },
             { MN(0x10), MN(0x11), MN(0x12), MN(0x13) }, { MN(0x18), MN(0x19), MN(0x1a), MN(0x1b) }, { MN(0x20), MN(0x21), MN(0x22), MN(0x23) },
@@ -267,16 +283,30 @@ static void MN(register)(mh_t *t)
         unsigned k;
         for (k = 0; k < 4; k++) t[i + k] = alu[i >> 3][k];
     }
+#endif
+#if !(F16_ASM && !MINI_OV)
     t[0x80] = t[0x82] = MN(grp1_b); t[0x81] = t[0x83] = MN(grp1_w);
     t[0x84] = MN(84); t[0x85] = MN(85);
+#endif
+#if !F16_ASM
     t[0x88] = MN(88); t[0x89] = MN(89); t[0x8a] = MN(8a); t[0x8b] = MN(8b);
+#endif
+#if !(F16_ASM && !MINI_OV)
     for (i = 0xa0; i < 0xa4; i++) t[i] = MN(mova);
     t[0xc6] = MN(c6); t[0xc7] = MN(c7);
+#endif
 #if !MINI_OV   /* the override variants of the rarer opcodes are left out (IRAM budget: they go to the generic loop) */
+#if !F16_ASM
     t[0x8c] = MN(8c); t[0x8e] = MN(8e);
+#endif
     t[0xc0] = MN(c0); t[0xc1] = MN(c1);
-    t[0xd0] = MN(d0); t[0xd1] = MN(d1); t[0xd2] = MN(d2); t[0xd3] = MN(d3);
+#if !F16_ASM
+    t[0xd0] = MN(d0); t[0xd1] = MN(d1);
+#endif
+    t[0xd2] = MN(d2); t[0xd3] = MN(d3);
+#if !F16_ASM
     t[0xf6] = MN(f6); t[0xf7] = MN(f7); t[0xfe] = MN(fe); t[0xff] = MN(ff);
+#endif
 #endif
 }
 #undef MN

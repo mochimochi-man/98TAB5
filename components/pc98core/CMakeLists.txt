@@ -17,7 +17,12 @@ if(NOT DEFINED PC98_FULLCPU)
 endif()
 set(NEWCPU_SRCS "")
 if(PC98_NEWCPU)
-    file(GLOB NEWCPU_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/cpu/*.c)
+    # PC98_FAST16_CMINI=1: the fast16 mini loop in C only (fast16_mini.inc), without the assembly handlers (comparison builds)
+    if(PC98_FAST16_CMINI)
+        file(GLOB NEWCPU_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/cpu/*.c)
+    else()
+        file(GLOB NEWCPU_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/cpu/*.c ${CMAKE_CURRENT_SOURCE_DIR}/cpu/*.S)
+    endif()
 endif()
 
 idf_component_register(
@@ -35,24 +40,7 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     -Werror=implicit-function-declaration
     -fno-strict-aliasing)
 
-# Per-phase instruction-count build (idf.py -DPC98_COST=1).
-if(PC98_COST)
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE PC98_COST=1)
-    if(PC98_COSTCYC)
-        target_compile_definitions(${COMPONENT_LIB} PRIVATE PC98_COSTCYC=1)
-    endif()
+if(PC98_FAST16_CMINI)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE PC98_FAST16_CMINI=1)
 endif()
-# Serial logs and checks, debug builds only (idf.py -DPC98_DEBUGLOG=1).
-if(PC98_DEBUGLOG)
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE PC98_DEBUG_LOG=1)
-endif()
-# Expansion ROM scan trace (idf.py -DPC98_ROMSCAN=1). Not in normal builds.
-if(PC98_ROMSCAN)
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE PC98_ROMSCAN_TRACE=1)
-endif()
-# Instruction / port measurement build (idf.py -DPC98_PROF=1). Not in normal builds.
-if(PC98_PROF)
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE PC98_PROF=1)
-endif()
-
 target_add_binary_data(${COMPONENT_LIB} "${CMAKE_CURRENT_SOURCE_DIR}/sound/samples/orchestra_bank.bin" BINARY RENAME_TO pc98_orchestra_bank)

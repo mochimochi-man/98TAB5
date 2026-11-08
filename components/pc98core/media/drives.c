@@ -30,6 +30,9 @@ static const fm_io_t s_io = { io_open, io_close, io_size, io_seek, io_read, io_w
 
 typedef struct {
 	fm_disk_t	*own;			/* an image this file opened */
+	fm_disk_t	*ext;
+	void		(*on_eject)(int drv);
+	int		door_open;
 	int		swap_frames;		/* > 0: an insert is pending */
 	char		swap_path[MAX_PATH];
 } Drive;
@@ -76,6 +79,14 @@ void drv_fd_eject(int drv)
 		fm_disk_close(d->own);
 		d->own = NULL;
 	}
+	if (d->ext && d->on_eject) {
+		void (*cb)(int) = d->on_eject;
+
+		d->on_eject = NULL;
+		cb(drv);
+	}
+	d->ext = NULL;
+	d->door_open = 0;
 }
 
 int drv_fd_mount(int drv, const char *path)
@@ -115,15 +126,32 @@ void drv_fd_tick(void)
 	}
 }
 
+void drv_fd_set_external(int drv, fm_disk_t *d, void (*on_eject)(int drv))
+{
+	if (!valid(drv)) return;
+	if (d && s_drv[drv].own) {
+		fm_disk_close(s_drv[drv].own);
+		s_drv[drv].own = NULL;
+	}
+	s_drv[drv].ext = d;
+	s_drv[drv].on_eject = d ? on_eject : NULL;
+	s_drv[drv].door_open = 0;
+}
+
+void drv_fd_door(int drv, int open)
+{
+	if (valid(drv)) s_drv[drv].door_open = open ? 1 : 0;
+}
+
 fm_disk_t *fdd_media_disk(int drv)
 {
 	if (!valid(drv)) return NULL;
-	return s_drv[drv].own;
+	return s_drv[drv].ext ? s_drv[drv].ext : s_drv[drv].own;
 }
 
 int drv_fd_ready(int drv)
 {
-	return fdd_media_disk(drv) != NULL;
+	return fdd_media_disk(drv) != NULL && !s_drv[drv].door_open;
 }
 
 int drv_fd_protect(int drv)

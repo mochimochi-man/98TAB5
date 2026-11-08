@@ -15,15 +15,6 @@
 #include <pc98.h>
 #include "viewint.h"
 
-#ifdef ESP_PLATFORM
-#include "esp_timer.h"
-#include "esp_cpu.h"
-#define CYC()	((uint32_t)esp_cpu_get_cycle_count())
-#define US()	esp_timer_get_time()
-#else
-#define CYC()	0u
-#define US()	0
-#endif
 
 #define DRAW_LINES	400
 
@@ -34,9 +25,6 @@ UINT8 g_tcolor[VIEW_LINES][80];
 ViewGeom g_geom;
 int (*g_comp_async)(void (*fn)(const void *), const void *arg);
 
-volatile unsigned long long g_prof_grph, g_prof_text, g_prof_comp, g_prof_comp0, g_prof_rows, g_prof_cframes, g_prof_k15, g_prof_l200;
-volatile unsigned g_prof_vsync, g_prof_flip;
-extern volatile long long g_prof_draw;
 
 static DRAM_ATTR UINT16 s_pal[16 + 8 * 16];	/* graphics + text value */
 static DRAM_ATTR UINT16 s_tpal[256];		/* text value alone (black where there is none) */
@@ -159,7 +147,6 @@ static Job s_job;
 static void compose_rows(const void *arg)
 {
 	const Job *j = (const Job *)arg;
-	const int64_t t0 = US();
 	static const UINT8 zero[SURFACE_WIDTH] __attribute__((aligned(4)));
 	const UINT8 *const g = j->g, *const t = j->t;
 	int y;
@@ -181,7 +168,6 @@ static void compose_rows(const void *arg)
 		else if (!t) row1(d, gl, s_pal);
 		else row2(d, gl, tl, s_pal);
 	}
-	g_prof_comp0 += (unsigned long long)(US() - t0);
 }
 
 void compose_frame(int all)
@@ -217,7 +203,6 @@ void compose_frame(int all)
 	s_job.lines = lines;
 	s_job.hideodd = (g_vid.mode1 & M1_HIDEODD) != 0;
 	s_job.line200 = s_line200;
-	g_prof_cframes++;
 	if (!(g_comp_async && g_comp_async(compose_rows, &s_job))) compose_rows(&s_job);
 	g_frames_composed++;
 }
@@ -267,7 +252,6 @@ void video_frame(void)
 	UINT cursor_phase, blink_phase;
 	UINT32 cell;
 	int changed = 0;
-	uint32_t c0;
 
 	if (!g_pc98_draw_enabled) return;
 	s_frames++;
@@ -305,29 +289,22 @@ void video_frame(void)
 		 * except in the monochrome mode, whose dots take the text colours, which may have changed meanwhile. */
 		s_shown_page = (UINT8)page;
 		g_vreq.grph[page] |= (g_vid.mode1 & M1_MONO) ? VR_ALL : VR_CHANGED;
-		g_prof_flip++;
 	}
 	if (g_vreq.text) {
-		c0 = CYC();
 		textview_draw((g_vreq.text & VR_ALL) != 0, (int)blink_phase, (int)cursor_phase);
 		if (g_vid.mode1 & M1_MONO) g_vreq.grph[page] |= VR_ALL;
 		g_vreq.text = 0;
-		g_prof_text += CYC() - c0;
 		changed = 1;
 	}
 	if (g_vreq.grph[page]) {
-		c0 = CYC();
 		grphview_draw(page, (g_vreq.grph[page] & VR_ALL) != 0);
 		g_vreq.grph[page] = 0;
 		g_vreq.grph[page ^ 1] |= VR_CHANGED;	/* the other page's marks were cleared only for this page */
-		g_prof_grph += CYC() - c0;
 		changed = 1;
 	}
 	if (changed || g_vreq.compose) {
 		const int all = g_vreq.compose;
-		c0 = CYC();
 		g_vreq.compose = 0;
 		compose_frame(all);
-		g_prof_comp += CYC() - c0;
 	}
 }

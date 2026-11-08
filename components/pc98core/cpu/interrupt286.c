@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Copyright (c) mochimochi-man / Uh */
 #include "interrupt286.h"
-#include "cpuprof.h"
 #include "purge.h"
 #include <assert.h>
 int pc98_cpu_deliver_gate286(Pc98Cpu16State *c,Pc98InterruptTables286 *t,
@@ -15,7 +14,7 @@ int pc98_cpu_deliver_gate286(Pc98Cpu16State *c,Pc98InterruptTables286 *t,
  fault=pc98_cpu_check_gate286(&gate,vector,cpl,software,external,&error);
  if(fault)goto rejected;
  if((gate.access&31u)==5){
-  PROF_EVT(PEV_INT_TASKGATE);
+  
 #if PC98_FULLCPU
   if(!t->task_switch)return -1;
   return pc98_cpu_switch_task286(c,t->task_switch,b,gate.selector,PC98_TASK_INTERRUPT,0,external,has_error,original_error,failure);
@@ -40,7 +39,7 @@ int pc98_cpu_deliver_gate286(Pc98Cpu16State *c,Pc98InterruptTables286 *t,
   if((new_ss&3u)!=next_cpl||((stack.access>>5)&3u)!=next_cpl||(stack.access&0x1au)!=0x12u){fault=10;goto rejected;}
   if(!(stack.access&128u)){fault=12;goto rejected;}
  }else if(!(code.access&128u)){fault=11;error=(uint16_t)((gate.selector&0xfffcu)|(external?1u:0u));goto rejected;}
- PROF_EVT(transition?PEV_INTGATE_INNER:PEV_INTGATE_SAME);PROF_EVT((gate.access&31u)==6?PEV_INTGATE_T6:PEV_INTGATE_T7);
+ 
  unsigned bytes=(transition?10u:6u)+(has_error?2u:0u);uint16_t lowest=(uint16_t)(top-bytes);uint32_t physical;
  if(transition){
   if(!pc98_cpu_range286(&stack,lowest,bytes)){fault=12;error=(uint16_t)((new_ss&0xfffcu)|(external?1u:0u));goto rejected;}

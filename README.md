@@ -56,20 +56,10 @@ With **CPU: 80286 + 386 Instructions** in the menu (the default), some real-mode
 software that uses 386 instructions runs. Protected mode is not supported.
 The machine identifies itself as a 286.
 
-### Features removed from np2 TAB5
-
-GreaseWeazle mode has been discontinued. The emulator had not reached the
-intended level of maturity, which limited the benefit of reading physical
-disks directly. An unresolved concern also led to the decision that continuing
-to provide this feature would be inappropriate.
-
 ### Sound modes
 
-**FM Sound** offers **Original, Hall, Synthesizer (HVY), Orchestra (HVY)**, in that order; (HVY) marks the heavy ones.
-Synthesizer preserves the earlier procedural sound; Orchestra uses a compact
-CC0 acoustic sample bank with hall ambience. Warm has been removed.
-F12 also offers an 8/10 MHz Clock Family setting, applied on Reset.
-Sample credits are in [components/pc98core/sound/samples/](components/pc98core/sound/samples/).
+**FM Sound** offers **Original, Hall, Synthesizer (HVY), Orchestra (HVY)**, in that order. Orchestra replaces the instruments with a compact bank of real-instrument samples. Sample credits are in [components/pc98core/sound/samples/](components/pc98core/sound/samples/).
+F12 offers an 8 MHz / 10 MHz Clock Family setting, applied on Reset.
 
 ## 2. Building
 
@@ -110,7 +100,7 @@ For a new installation, write the merged image, which contains the bootloader,
 partition table, initial OTA data and application:
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.1.0-20261103.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.1.9-20261106.bin
 ```
 
 For an update with the same partition layout, write only the application to

@@ -23,6 +23,24 @@ typedef struct {
 	uint8_t		cyls, secs, n, media, rot;
 } Geo;
 
+/* The open file is kept: opening it costs the card about 11 ms, and done for every sector it made a load several times
+ * slower than the drive (the music of a game playing while it loads broke up). Writes still open, write and close, as
+ * before, so that each one is on the card when it returns; the handle for reading is dropped first. */
+typedef struct {
+	Geo	g;			/* first: the code takes the private data as a Geo */
+	void	*fh;			/* the file, open for reading; NULL until a read needs it */
+} Raw;
+
+static void drop_handle(fm_disk_t *d)
+{
+	Raw *x = (Raw *)d->priv;
+
+	if (x && x->fh) {
+		d->io.close(x->fh);
+		x->fh = NULL;
+	}
+}
+
 static uint32_t get32(const uint8_t *p)
 {
 	return p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
@@ -54,6 +72,7 @@ static const Geo k[] = {
 
 static void raw_close(fm_disk_t *d)
 {
+	drop_handle(d);
 	free(d->priv);
 	d->priv = NULL;
 }
@@ -114,9 +133,17 @@ static int raw_load_track(fm_disk_t *d, int cyl, int head, fm_track_t *out)
 
 static int file_io(fm_disk_t *d, uint32_t pos, void *buf, size_t len, int write)
 {
-	void *f = d->io.open(d->path, write);
+	Raw *x = (Raw *)d->priv;
+	void *f;
 	int ok;
 
+	if (!write) {
+		if (!x->fh) x->fh = d->io.open(d->path, 0);
+		if (!x->fh) return 0;
+		return !d->io.seek(x->fh, (long)pos) && d->io.read(x->fh, buf, (long)len) == (long)len;
+	}
+	drop_handle(d);
+	f = d->io.open(d->path, write);
 	if (!f) return 0;
 	ok = !d->io.seek(f, (long)pos) &&
 	     (write ? d->io.write(f, buf, (long)len) : d->io.read(f, buf, (long)len)) == (long)len;
@@ -158,6 +185,7 @@ static int relayout(fm_disk_t *d, const fm_cfg_t *cfg, const fm_format_t *f)
 		classify(&n);
 		if (n.media != cfg->media || n.rot != cfg->hd_rot) continue;
 		size = ((uint32_t)n.cyls * 2 * n.secs) << (7 + n.n);
+		drop_handle(d);
 		h = d->io.open(d->path, 1);
 		if (!h) return 0;
 		if (d->io.size(h) > (long)size) ok = !d->io.seek(h, (long)size) && d->io.write(h, "", 0) == 0;
@@ -201,7 +229,7 @@ static const fm_backend_t raw_ops = {
 static fm_disk_t *make(const fm_io_t *io, const char *path, Geo g, int ro)
 {
 	fm_disk_t *d = fm_disk_alloc(&raw_ops, io, path);
-	Geo *x = (Geo *)malloc(sizeof(*x));
+	Raw *x = (Raw *)calloc(1, sizeof(*x));
 
 	if (!d || !x) {
 		free(x);
@@ -209,7 +237,7 @@ static fm_disk_t *make(const fm_io_t *io, const char *path, Geo g, int ro)
 		return NULL;
 	}
 	classify(&g);
-	*x = g;
+	x->g = g;
 	d->priv = x;
 	d->protect = ro;
 	return d;

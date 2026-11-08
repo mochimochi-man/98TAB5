@@ -2,7 +2,6 @@
  * Copyright (c) mochimochi-man / Uh
  * Intel 80286 PRM CALL B-24/B-25 and inter-level call frame. */
 #include "call286.h"
-#include "cpuprof.h"
 #include "purge.h"
 #include <assert.h>
 static void accessed(Pc98Descriptor286 *d,const Pc98ProtectedSegments286 *p,const Pc98ExecuteBus *b,uint16_t selector){
@@ -19,7 +18,7 @@ int pc98_cpu_call_gate286(Pc98Cpu16State *c,Pc98CallContext286 *context,const Pc
  fault=pc98_cpu_lookup286(&fetch,&p->tables,selector,&gate,&error);if(fault)goto rejected;
  unsigned type=gate.access&31u;
  #if PC98_FULLCPU
- if(type==1||type==3){PROF_EVT(PEV_CALL_TSS);if(!context->task_switch)return -1;return pc98_cpu_switch_task286(c,context->task_switch,b,selector,PC98_TASK_CALL,1,0,0,0,failure);}
+ if(type==1||type==3){if(!context->task_switch)return -1;return pc98_cpu_switch_task286(c,context->task_switch,b,selector,PC98_TASK_CALL,1,0,0,0,failure);}
  if(type==5&&!context->task_switch)return -1;
 #else
  if(type==1||type==3){PURGE_STOP("TSS task switch (CALL to TSS)");return -1;}
@@ -28,7 +27,7 @@ int pc98_cpu_call_gate286(Pc98Cpu16State *c,Pc98CallContext286 *context,const Pc
  error=(uint16_t)(selector&0xfffcu);unsigned cpl=pc98_cpu_cpl16(c),gate_dpl=(gate.access>>5)&3u;
  if((type!=4&&type!=5)||gate_dpl<cpl||gate_dpl<(selector&3u)){fault=13;goto rejected;}
  if(!(gate.access&128u)){fault=11;goto rejected;}
- if(type==5){PROF_EVT(PEV_CALL_TASKGATE);}
+ 
 #if PC98_FULLCPU
  if(type==5)return pc98_cpu_switch_task286(c,context->task_switch,b,(uint16_t)gate.base,PC98_TASK_CALL,0,0,0,0,failure);
 #endif
@@ -39,7 +38,7 @@ int pc98_cpu_call_gate286(Pc98Cpu16State *c,Pc98CallContext286 *context,const Pc
  Pc98Descriptor286 probe=code;probe.limit=0xffff;unsigned next_cpl=99;
  fault=pc98_cpu_interrupt_code286(&probe,code_selector,cpl,0,&next_cpl,&error);if(fault)goto rejected;
  unsigned transition=next_cpl!=cpl;uint16_t top=c->r[PC98_SP],new_ss=c->seg[PC98_SS];uint32_t source=0,physical;
- PROF_EVT(transition?PEV_CALLGATE_INNER:PEV_CALLGATE_SAME);
+ 
 #if !PC98_FULLCPU
  if(transition){PURGE_STOP("call gate privilege transition");return -1;}
 #endif

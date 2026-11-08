@@ -83,6 +83,7 @@ void	dma_connect(UINT ch, const DmaDevice *dev);
 void	dma_request(UINT ch, int on);	/* the device's DREQ line */
 void	dma_update(void);			/* re-evaluate which channels run */
 void	dma_cycle(void);			/* one byte on every running channel */
+int	dma_burst_byte(UINT ch);		/* one byte on ch now; 0 = the channel would not take it */
 UINT32	dma_address(UINT ch);
 UINT16	dma_count(UINT ch);
 UINT8	dma_mode(UINT ch);

@@ -97,27 +97,12 @@ int bus_vram_write_mode(UINT32 a)
  if(p->w16==grcg_rmw16_1)return 5;
  return -1;
 }
-#ifdef PC98_ROMSCAN_TRACE
-/* diagnostic: who reads the expansion ROM area C0000h-E7FFFh (first read of each 256-byte block) */
-extern int ets_printf(const char *fmt, ...);
-static void romscan_note(UINT32 a,int w)
-{
- static UINT8 seen[(0xe8000-0xc0000)>>8];static unsigned n;
- if(a<0xc0000||a>=0xe8000||n>=200)return;
- if(seen[(a-0xc0000)>>8])return;
- seen[(a-0xc0000)>>8]=1;n++;
- ets_printf("ROMSCAN r%d %05X cs:ip~%04X:%04X itf=%u\n",w,(unsigned)a,(unsigned)g_cpu.reg.cs,(unsigned)g_cpu.reg.ip,(unsigned)g_cpu.itf_rom);
-}
-#define ROMSCAN(a,w) romscan_note((a),(w))
-#else
-#define ROMSCAN(a,w) ((void)0)
-#endif
 REG8 bus_rd8(UINT32 a)
 {
  const BusPage *p;
  if(a<0xa4000)return mem[a];
  a&=g_cpu.addr_mask;
- ROMSCAN(a,8);
+
  if(a>=HIMEM_END && a<g_cpu.ext_end16)return g_cpu.ext[a-0x100000];
  if(a>=0xfa0000 && a<=0xffffff)a&=0xfffff;
  p=page_at(a);return p->r8(a);
@@ -128,7 +113,7 @@ REG16 bus_rd16(UINT32 a)
  if(a<0xa3fff)return mem[a]|((REG16)mem[a+1]<<8);
  if((a&0x7fff)==0x7fff){REG8 lo=bus_rd8(a);return lo|((REG16)bus_rd8(a+1)<<8);}
  a&=g_cpu.addr_mask;
- ROMSCAN(a,16);
+
  if(a>=HIMEM_END && a<g_cpu.ext_end16)return g_cpu.ext[a-0x100000]|((REG16)g_cpu.ext[a+1-0x100000]<<8);
  if(a>=0xfa0000 && a<=0xffffff)a&=0xfffff;
  p=page_at(a);return p->r16(a);
