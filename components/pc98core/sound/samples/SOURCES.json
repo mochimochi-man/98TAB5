@@ -3,8 +3,8 @@
   "license": "CC0-1.0",
   "upstream": "https://github.com/sgossner/VSCO-2-CE",
   "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
-  "bank_sha256": "8022eb6bf9810434aa21f8c9dea2cb4c1a20ff84f32277d917aa4e247d91cf1e",
-  "bytes": 4136298,
+  "bank_sha256": "b36f837c44134fbdf083bae9794979199aa7521953040ec21ab470fa7608eef0",
+  "bytes": 6909626,
   "format": "signed little-endian mono PCM16 at 22050 Hz; one level per zone (zones at about five-semitone steps)",
   "sources": [
     {
@@ -17,7 +17,7 @@
       "trim_start": 2387,
       "loop_swell_db": [
         8.95,
-        0.66
+        0.86
       ]
     },
     {
@@ -30,7 +30,7 @@
       "trim_start": 15033,
       "loop_swell_db": [
         12.22,
-        3.05
+        2.16
       ]
     },
     {
@@ -43,7 +43,7 @@
       "trim_start": 2465,
       "loop_swell_db": [
         11.09,
-        2.44
+        1.08
       ]
     },
     {
@@ -56,7 +56,7 @@
       "trim_start": 21207,
       "loop_swell_db": [
         11.53,
-        1.27
+        1.97
       ]
     },
     {
@@ -69,7 +69,7 @@
       "trim_start": 2774,
       "loop_swell_db": [
         8.64,
-        1.93
+        1.68
       ]
     },
     {
@@ -82,7 +82,7 @@
       "trim_start": 9223,
       "loop_swell_db": [
         7.99,
-        1.3
+        1.93
       ]
     },
     {
@@ -95,7 +95,7 @@
       "trim_start": 3494,
       "loop_swell_db": [
         11.53,
-        1.66
+        1.51
       ]
     },
     {
@@ -108,7 +108,7 @@
       "trim_start": 10602,
       "loop_swell_db": [
         8.56,
-        1.38
+        1.6
       ]
     },
     {
@@ -121,7 +121,7 @@
       "trim_start": 1807,
       "loop_swell_db": [
         9.13,
-        1.48
+        1.93
       ]
     },
     {
@@ -134,7 +134,7 @@
       "trim_start": 14014,
       "loop_swell_db": [
         7.09,
-        1.27
+        1.82
       ]
     },
     {
@@ -147,7 +147,7 @@
       "trim_start": 1190,
       "loop_swell_db": [
         8.94,
-        1.23
+        2.01
       ]
     },
     {
@@ -160,7 +160,7 @@
       "trim_start": 6617,
       "loop_swell_db": [
         9.23,
-        1.17
+        0.68
       ]
     },
     {
@@ -173,7 +173,7 @@
       "trim_start": 3148,
       "loop_swell_db": [
         9.55,
-        2.02
+        1.64
       ]
     },
     {
@@ -186,7 +186,7 @@
       "trim_start": 11542,
       "loop_swell_db": [
         7.05,
-        1.47
+        1.42
       ]
     },
     {
@@ -199,7 +199,7 @@
       "trim_start": 7466,
       "loop_swell_db": [
         6.87,
-        1.38
+        1.83
       ]
     },
     {
@@ -212,7 +212,7 @@
       "trim_start": 11611,
       "loop_swell_db": [
         9.13,
-        1.63
+        1.27
       ]
     },
     {
@@ -225,7 +225,7 @@
       "trim_start": 2341,
       "loop_swell_db": [
         9.33,
-        3.57
+        2.69
       ]
     },
     {
@@ -238,7 +238,7 @@
       "trim_start": 12117,
       "loop_swell_db": [
         12.63,
-        2.12
+        1.65
       ]
     },
     {
@@ -251,7 +251,7 @@
       "trim_start": 4923,
       "loop_swell_db": [
         9.59,
-        2.52
+        2.25
       ]
     },
     {
@@ -264,7 +264,7 @@
       "trim_start": 8511,
       "loop_swell_db": [
         8.79,
-        1.72
+        1.89
       ]
     },
     {
@@ -277,7 +277,7 @@
       "trim_start": 2413,
       "loop_swell_db": [
         3.42,
-        0.69
+        0.63
       ]
     },
     {
@@ -290,7 +290,7 @@
       "trim_start": 4927,
       "loop_swell_db": [
         9.77,
-        2.1
+        1.93
       ]
     },
     {
@@ -303,7 +303,7 @@
       "trim_start": 284,
       "loop_swell_db": [
         4.12,
-        0.72
+        0.98
       ]
     },
     {
@@ -316,7 +316,7 @@
       "trim_start": 9057,
       "loop_swell_db": [
         11.27,
-        1.45
+        1.04
       ]
     },
     {
@@ -329,7 +329,7 @@
       "trim_start": 773,
       "loop_swell_db": [
         6.76,
-        1.92
+        1.71
       ]
     },
     {
@@ -342,7 +342,7 @@
       "trim_start": 12806,
       "loop_swell_db": [
         12.66,
-        2.46
+        1.74
       ]
     },
     {
@@ -355,7 +355,7 @@
       "trim_start": 579,
       "loop_swell_db": [
         5.01,
-        0.8
+        1.02
       ]
     },
     {
@@ -368,7 +368,7 @@
       "trim_start": 3957,
       "loop_swell_db": [
         10.04,
-        1.12
+        1.28
       ]
     },
     {
@@ -381,7 +381,7 @@
       "trim_start": 1877,
       "loop_swell_db": [
         5.29,
-        1.21
+        1.15
       ]
     },
     {
@@ -394,7 +394,7 @@
       "trim_start": 10851,
       "loop_swell_db": [
         11.2,
-        1.66
+        1.4
       ]
     },
     {
@@ -407,7 +407,7 @@
       "trim_start": 408,
       "loop_swell_db": [
         9.65,
-        1.18
+        1.36
       ]
     },
     {
@@ -420,7 +420,7 @@
       "trim_start": 9028,
       "loop_swell_db": [
         7.14,
-        0.78
+        0.94
       ]
     },
     {
@@ -433,7 +433,7 @@
       "trim_start": 1619,
       "loop_swell_db": [
         6.06,
-        0.84
+        0.67
       ]
     },
     {
@@ -446,7 +446,7 @@
       "trim_start": 5204,
       "loop_swell_db": [
         6.02,
-        0.9
+        0.68
       ]
     },
     {
@@ -459,7 +459,7 @@
       "trim_start": 749,
       "loop_swell_db": [
         7.82,
-        1.43
+        1.35
       ]
     },
     {
@@ -472,7 +472,7 @@
       "trim_start": 5958,
       "loop_swell_db": [
         10.67,
-        1.62
+        2.93
       ]
     },
     {
@@ -485,7 +485,7 @@
       "trim_start": 1483,
       "loop_swell_db": [
         2.94,
-        1.26
+        1.21
       ]
     },
     {
@@ -498,7 +498,7 @@
       "trim_start": 12514,
       "loop_swell_db": [
         6.3,
-        1.34
+        1.31
       ]
     },
     {
@@ -511,7 +511,7 @@
       "trim_start": 717,
       "loop_swell_db": [
         5.27,
-        1.35
+        1.38
       ]
     },
     {
@@ -524,7 +524,7 @@
       "trim_start": 2008,
       "loop_swell_db": [
         6.22,
-        1.42
+        1.78
       ]
     },
     {
@@ -537,7 +537,7 @@
       "trim_start": 670,
       "loop_swell_db": [
         2.58,
-        1.0
+        0.95
       ]
     },
     {
@@ -550,7 +550,7 @@
       "trim_start": 5028,
       "loop_swell_db": [
         7.59,
-        1.42
+        0.98
       ]
     },
     {
@@ -563,7 +563,7 @@
       "trim_start": 582,
       "loop_swell_db": [
         4.37,
-        1.02
+        0.65
       ]
     },
     {
@@ -576,7 +576,7 @@
       "trim_start": 5339,
       "loop_swell_db": [
         7.66,
-        0.79
+        0.93
       ]
     },
     {
@@ -589,7 +589,7 @@
       "trim_start": 248,
       "loop_swell_db": [
         3.83,
-        0.75
+        0.67
       ]
     },
     {
@@ -602,7 +602,7 @@
       "trim_start": 5361,
       "loop_swell_db": [
         7.72,
-        1.55
+        1.28
       ]
     },
     {
@@ -615,7 +615,7 @@
       "trim_start": 184,
       "loop_swell_db": [
         7.6,
-        1.27
+        1.98
       ]
     },
     {
@@ -628,7 +628,7 @@
       "trim_start": 4572,
       "loop_swell_db": [
         10.9,
-        2.63
+        0.94
       ]
     },
     {
@@ -641,7 +641,7 @@
       "trim_start": 714,
       "loop_swell_db": [
         8.78,
-        1.19
+        0.97
       ]
     },
     {
@@ -654,7 +654,7 @@
       "trim_start": 4234,
       "loop_swell_db": [
         5.66,
-        0.61
+        0.5
       ]
     },
     {
@@ -667,7 +667,7 @@
       "trim_start": 117,
       "loop_swell_db": [
         9.67,
-        1.38
+        1.71
       ]
     },
     {
@@ -680,7 +680,7 @@
       "trim_start": 2458,
       "loop_swell_db": [
         8.71,
-        0.87
+        1.5
       ]
     },
     {
@@ -693,7 +693,7 @@
       "trim_start": 304,
       "loop_swell_db": [
         9.92,
-        2.64
+        3.31
       ]
     },
     {
@@ -706,7 +706,7 @@
       "trim_start": 893,
       "loop_swell_db": [
         6.94,
-        0.9
+        1.16
       ]
     },
     {
@@ -719,7 +719,7 @@
       "trim_start": 39,
       "loop_swell_db": [
         2.35,
-        1.33
+        1.25
       ]
     },
     {
@@ -732,7 +732,7 @@
       "trim_start": 56,
       "loop_swell_db": [
         3.47,
-        1.64
+        1.61
       ]
     },
     {
@@ -745,7 +745,7 @@
       "trim_start": 836,
       "loop_swell_db": [
         3.18,
-        0.94
+        0.89
       ]
     },
     {
@@ -758,7 +758,7 @@
       "trim_start": 1209,
       "loop_swell_db": [
         2.35,
-        0.99
+        0.95
       ]
     },
     {
@@ -771,7 +771,7 @@
       "trim_start": 1576,
       "loop_swell_db": [
         1.87,
-        0.47
+        0.43
       ]
     },
     {
@@ -784,7 +784,7 @@
       "trim_start": 554,
       "loop_swell_db": [
         1.98,
-        0.84
+        0.83
       ]
     },
     {
@@ -797,7 +797,7 @@
       "trim_start": 74,
       "loop_swell_db": [
         3.1,
-        0.8
+        0.73
       ]
     },
     {
@@ -823,7 +823,7 @@
       "trim_start": 999,
       "loop_swell_db": [
         3.23,
-        0.79
+        0.72
       ]
     },
     {
@@ -836,7 +836,7 @@
       "trim_start": 1567,
       "loop_swell_db": [
         4.2,
-        0.39
+        0.34
       ]
     },
     {
@@ -849,7 +849,7 @@
       "trim_start": 183,
       "loop_swell_db": [
         3.84,
-        0.67
+        0.62
       ]
     },
     {
@@ -862,7 +862,7 @@
       "trim_start": 1188,
       "loop_swell_db": [
         2.01,
-        0.77
+        0.68
       ]
     },
     {
@@ -963,6 +963,650 @@
       "layer": 0,
       "measured_hz": 1392.187,
       "trim_start": 97,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Brass/F Horn/sus/MOHorn_sus_D#1_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/F%20Horn/sus/MOHorn_sus_D%231_v2_1.wav",
+      "source_sha256": "da8b40f36b165fcc1f97d174ef6334acdc1e505cba9d966c7af8fb91563ab8a7",
+      "family": 5,
+      "layer": 0,
+      "measured_hz": 77.5354,
+      "trim_start": 563,
+      "loop_swell_db": [
+        2.4,
+        0.86
+      ]
+    },
+    {
+      "path": "Brass/F Horn/sus/MOHorn_sus_A#1_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/F%20Horn/sus/MOHorn_sus_A%231_v2_1.wav",
+      "source_sha256": "1a65415731a0be8a1a51ce31f7989180fde674173821acceaceef0f3511d5f35",
+      "family": 5,
+      "layer": 0,
+      "measured_hz": 116.3975,
+      "trim_start": 1771,
+      "loop_swell_db": [
+        4.49,
+        0.62
+      ]
+    },
+    {
+      "path": "Brass/F Horn/sus/MOHorn_sus_F2_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/F%20Horn/sus/MOHorn_sus_F2_v2_1.wav",
+      "source_sha256": "2e487a49c834ff2d76aff1c9755875fc03013bf202b949a5c5fe354d0c2123c2",
+      "family": 5,
+      "layer": 0,
+      "measured_hz": 173.867,
+      "trim_start": 422,
+      "loop_swell_db": [
+        5.29,
+        0.73
+      ]
+    },
+    {
+      "path": "Brass/F Horn/sus/MOHorn_sus_C3_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/F%20Horn/sus/MOHorn_sus_C3_v2_1.wav",
+      "source_sha256": "c0c0b157dcde094c4417b7c165d645897cde9ea6d74247bbab0c0e75355e78c3",
+      "family": 5,
+      "layer": 0,
+      "measured_hz": 261.1868,
+      "trim_start": 1390,
+      "loop_swell_db": [
+        2.43,
+        0.45
+      ]
+    },
+    {
+      "path": "Brass/F Horn/sus/MOHorn_sus_D4_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/F%20Horn/sus/MOHorn_sus_D4_v1_1.wav",
+      "source_sha256": "2866520e737f3826ee9f53693f148109a9cc2d2e54235db0b92f78b2c100b8f7",
+      "family": 5,
+      "layer": 0,
+      "measured_hz": 588.8471,
+      "trim_start": 597,
+      "loop_swell_db": [
+        3.84,
+        0.18
+      ]
+    },
+    {
+      "path": "Brass/Trumpet/sus/Sum_SHTrumpet_sus_F2_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Trumpet/sus/Sum_SHTrumpet_sus_F2_v3_rr1.wav",
+      "source_sha256": "31992fbdf596d77e9464dc57166718389f13870f8b9b1f1e83380f5ec2217c87",
+      "family": 6,
+      "layer": 0,
+      "measured_hz": 173.8014,
+      "trim_start": 428,
+      "loop_swell_db": [
+        3.74,
+        0.66
+      ]
+    },
+    {
+      "path": "Brass/Trumpet/sus/Sum_SHTrumpet_sus_C3_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Trumpet/sus/Sum_SHTrumpet_sus_C3_v3_rr1.wav",
+      "source_sha256": "4a55ab4d867cfa3499fbcf1c5d8d530f757621a9979aee5b46d3fd69a2931c99",
+      "family": 6,
+      "layer": 0,
+      "measured_hz": 261.5606,
+      "trim_start": 176,
+      "loop_swell_db": [
+        1.77,
+        0.66
+      ]
+    },
+    {
+      "path": "Brass/Trumpet/sus/Sum_SHTrumpet_sus_G3_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Trumpet/sus/Sum_SHTrumpet_sus_G3_v3_rr1.wav",
+      "source_sha256": "e916631d4ef5c7d2afa356b76cb0d3a18ba2702d1229535edf4fb6d73c2e521c",
+      "family": 6,
+      "layer": 0,
+      "measured_hz": 393.3493,
+      "trim_start": 115,
+      "loop_swell_db": [
+        1.54,
+        0.38
+      ]
+    },
+    {
+      "path": "Brass/Trumpet/sus/Sum_SHTrumpet_sus_D4_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Trumpet/sus/Sum_SHTrumpet_sus_D4_v3_rr1.wav",
+      "source_sha256": "71d77fc5c3c43b9453f17293c6039bf8554dec6581ca15c14c45893f8bc57566",
+      "family": 6,
+      "layer": 0,
+      "measured_hz": 589.2438,
+      "trim_start": 77,
+      "loop_swell_db": [
+        2.29,
+        0.21
+      ]
+    },
+    {
+      "path": "Brass/Trumpet/sus/Sum_SHTrumpet_sus_A4_v3_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Trumpet/sus/Sum_SHTrumpet_sus_A4_v3_rr1.wav",
+      "source_sha256": "0cd9d6d4dedadc6bfb9625045e632f84f6cd7b2a005f72b7efd198e5b0571172",
+      "family": 6,
+      "layer": 0,
+      "measured_hz": 882.8834,
+      "trim_start": 756,
+      "loop_swell_db": [
+        3.45,
+        0.35
+      ]
+    },
+    {
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_A#0_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Tenor%20Trombone/sus/tenortbn_sus_A%230_v2_1.wav",
+      "source_sha256": "c8192572a34ba0c410cb77a33fe200a5850b334e1763b2ebc91ab5292978a0d4",
+      "family": 7,
+      "layer": 0,
+      "measured_hz": 58.2914,
+      "trim_start": 412,
+      "loop_swell_db": [
+        7.35,
+        1.91
+      ]
+    },
+    {
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_D#1_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Tenor%20Trombone/sus/tenortbn_sus_D%231_v2_1.wav",
+      "source_sha256": "eecd696f213cda2f402ca84eb1af244d29c6006fd3f4bb7853854ab892eaeaa7",
+      "family": 7,
+      "layer": 0,
+      "measured_hz": 77.7953,
+      "trim_start": 298,
+      "loop_swell_db": [
+        5.52,
+        1.0
+      ]
+    },
+    {
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_A#1_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Tenor%20Trombone/sus/tenortbn_sus_A%231_v2_1.wav",
+      "source_sha256": "09d6fff28ec8d8a3ac83505c61cf4e2e95fce5b232f3ae4f7adfefddb7af56e1",
+      "family": 7,
+      "layer": 0,
+      "measured_hz": 116.5447,
+      "trim_start": 221,
+      "loop_swell_db": [
+        4.39,
+        1.01
+      ]
+    },
+    {
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_F2_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Tenor%20Trombone/sus/tenortbn_sus_F2_v2_1.wav",
+      "source_sha256": "9d4d0eeef23a823416724e150deebb141f85d5ff1a90226e947bc4ba13c00597",
+      "family": 7,
+      "layer": 0,
+      "measured_hz": 174.588,
+      "trim_start": 729,
+      "loop_swell_db": [
+        3.47,
+        0.4
+      ]
+    },
+    {
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_C3_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Tenor%20Trombone/sus/tenortbn_sus_C3_v2_1.wav",
+      "source_sha256": "6858987188e6e87a24ea6b37d0f3c07921e8f891adafbdbd2c72bb8f7241e8ab",
+      "family": 7,
+      "layer": 0,
+      "measured_hz": 261.6167,
+      "trim_start": 1260,
+      "loop_swell_db": [
+        1.8,
+        0.45
+      ]
+    },
+    {
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_F3_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Tenor%20Trombone/sus/tenortbn_sus_F3_v2_1.wav",
+      "source_sha256": "3ef29a754b2cfcaa8c27b5a8a3c807247d606c8cf95650941cee295e8011cfeb",
+      "family": 7,
+      "layer": 0,
+      "measured_hz": 349.2403,
+      "trim_start": 705,
+      "loop_swell_db": [
+        1.29,
+        0.1
+      ]
+    },
+    {
+      "path": "Woodwinds/Flute/susvib/LDFlute_susvib_C3_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Flute/susvib/LDFlute_susvib_C3_v1_1.wav",
+      "source_sha256": "073631c8442b275d803e608e840c2ce6cad3b08320018e08510cf3cb57373154",
+      "family": 8,
+      "layer": 0,
+      "measured_hz": 261.8488,
+      "trim_start": 4305,
+      "loop_swell_db": [
+        5.9,
+        0.81
+      ]
+    },
+    {
+      "path": "Woodwinds/Flute/susvib/LDFlute_susvib_A3_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Flute/susvib/LDFlute_susvib_A3_v1_1.wav",
+      "source_sha256": "4ea04a7a2ba152752e1b475798619a62f2546f54972caa6ddcd88f29a2046c81",
+      "family": 8,
+      "layer": 0,
+      "measured_hz": 439.5773,
+      "trim_start": 1456,
+      "loop_swell_db": [
+        5.85,
+        0.65
+      ]
+    },
+    {
+      "path": "Woodwinds/Flute/susvib/LDFlute_susvib_E4_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Flute/susvib/LDFlute_susvib_E4_v1_1.wav",
+      "source_sha256": "83d4eed0c54ebfe25fe9dfb0475fb90a88a43d11777bc2afac879b8b695e494c",
+      "family": 8,
+      "layer": 0,
+      "measured_hz": 659.6037,
+      "trim_start": 901,
+      "loop_swell_db": [
+        3.7,
+        0.39
+      ]
+    },
+    {
+      "path": "Woodwinds/Flute/susvib/LDFlute_susvib_C5_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Flute/susvib/LDFlute_susvib_C5_v1_1.wav",
+      "source_sha256": "ecb78c59069866ea7c3327594851827cd2f50c5d411aad422269a88e53614fbe",
+      "family": 8,
+      "layer": 0,
+      "measured_hz": 1044.3749,
+      "trim_start": 1302,
+      "loop_swell_db": [
+        3.59,
+        0.74
+      ]
+    },
+    {
+      "path": "Woodwinds/Flute/susvib/LDFlute_susvib_E5_v1_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Flute/susvib/LDFlute_susvib_E5_v1_1.wav",
+      "source_sha256": "6eab0a4827c43b49415cb0c846affd40e9555c884c74683422554923faf17681",
+      "family": 8,
+      "layer": 0,
+      "measured_hz": 1319.5201,
+      "trim_start": 646,
+      "loop_swell_db": [
+        6.6,
+        0.41
+      ]
+    },
+    {
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_A#2_v3_Main.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Oboe/Vib/Oboe_Vib_A%232_v3_Main.wav",
+      "source_sha256": "713a7e20c4ae920ec871107e3b5fdabd0f8ed0539e0a1fe25f19bdc4aeb18434",
+      "family": 9,
+      "layer": 0,
+      "measured_hz": 233.4761,
+      "trim_start": 456,
+      "loop_swell_db": [
+        6.89,
+        1.04
+      ]
+    },
+    {
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_F3_v3_Main.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Oboe/Vib/Oboe_Vib_F3_v3_Main.wav",
+      "source_sha256": "72ca108efbe96d7e19cb93c5ad2532e91e3372be02afce92dbae5bccc640745f",
+      "family": 9,
+      "layer": 0,
+      "measured_hz": 349.4007,
+      "trim_start": 314,
+      "loop_swell_db": [
+        5.77,
+        0.42
+      ]
+    },
+    {
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_D4_v3_Main.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Oboe/Vib/Oboe_Vib_D4_v3_Main.wav",
+      "source_sha256": "3d45ff8573ad67eb27406c44d5b2056f7892ecdf35f0aac791a988daf5b70e0f",
+      "family": 9,
+      "layer": 0,
+      "measured_hz": 587.4988,
+      "trim_start": 723,
+      "loop_swell_db": [
+        11.14,
+        0.9
+      ]
+    },
+    {
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_A#4_v3_Main.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Oboe/Vib/Oboe_Vib_A%234_v3_Main.wav",
+      "source_sha256": "37ebac8c277c1cee48758448bddbaddc1b2f1664f4c30232eeb74d361e9afdf7",
+      "family": 9,
+      "layer": 0,
+      "measured_hz": 929.7335,
+      "trim_start": 220,
+      "loop_swell_db": [
+        10.59,
+        1.5
+      ]
+    },
+    {
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_F5_v3_Main.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Oboe/Vib/Oboe_Vib_F5_v3_Main.wav",
+      "source_sha256": "7251e53c56181f2b4eb38cb0b04e557d7909e4a42a1d6a70aa050cd78da6eb97",
+      "family": 9,
+      "layer": 0,
+      "measured_hz": 1391.7855,
+      "trim_start": 516,
+      "loop_swell_db": [
+        5.96,
+        0.74
+      ]
+    },
+    {
+      "path": "Woodwinds/Clarinet/susLong/DCClar_susLong_D2_v2_rr1_sum.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Clarinet/susLong/DCClar_susLong_D2_v2_rr1_sum.wav",
+      "source_sha256": "b1a793ff45d8f068dd83b591924b1a29bbece98e6e8177b31fc003f2f426fe00",
+      "family": 10,
+      "layer": 0,
+      "measured_hz": 147.1625,
+      "trim_start": 4243,
+      "loop_swell_db": [
+        3.62,
+        0.68
+      ]
+    },
+    {
+      "path": "Woodwinds/Clarinet/susLong/DCClar_susLong_A#2_v2_rr1_sum.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Clarinet/susLong/DCClar_susLong_A%232_v2_rr1_sum.wav",
+      "source_sha256": "82be872b7915c833e06910846e3398b55591f69bfe6474c39dd4051742db2700",
+      "family": 10,
+      "layer": 0,
+      "measured_hz": 233.1653,
+      "trim_start": 2273,
+      "loop_swell_db": [
+        1.25,
+        0.29
+      ]
+    },
+    {
+      "path": "Woodwinds/Clarinet/susLong/DCClar_susLong_F3_v2_rr1_sum.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Clarinet/susLong/DCClar_susLong_F3_v2_rr1_sum.wav",
+      "source_sha256": "3c9a237651cd049cacdf4052ef85ff406da1d9e5d4f59439c20f45a7578ff431",
+      "family": 10,
+      "layer": 0,
+      "measured_hz": 350.4338,
+      "trim_start": 2377,
+      "loop_swell_db": [
+        2.05,
+        0.14
+      ]
+    },
+    {
+      "path": "Woodwinds/Clarinet/susLong/DCClar_susLong_D4_v2_rr1_sum.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Clarinet/susLong/DCClar_susLong_D4_v2_rr1_sum.wav",
+      "source_sha256": "4bdc53f3ef917cc9146e10cec5eb33744524e8b510c4a39c080dc5c774b3c956",
+      "family": 10,
+      "layer": 0,
+      "measured_hz": 588.5446,
+      "trim_start": 1022,
+      "loop_swell_db": [
+        0.94,
+        0.14
+      ]
+    },
+    {
+      "path": "Woodwinds/Clarinet/susLong/DCClar_susLong_A#4_v2_rr1_sum.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Clarinet/susLong/DCClar_susLong_A%234_v2_rr1_sum.wav",
+      "source_sha256": "569e902693e7d04ecd20507f0a3dd0be92a7a3cdf14ab685d89aefacff2a34cb",
+      "family": 10,
+      "layer": 0,
+      "measured_hz": 934.579,
+      "trim_start": 1630,
+      "loop_swell_db": [
+        2.4,
+        0.3
+      ]
+    },
+    {
+      "path": "Woodwinds/Clarinet/susLong/DCClar_susLong_F#5_v2_rr1_sum.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Clarinet/susLong/DCClar_susLong_F%235_v2_rr1_sum.wav",
+      "source_sha256": "2f024789f1b2ecc25f0e07dcff06084e4c2def83ff74e693c098c28fbec319fc",
+      "family": 10,
+      "layer": 0,
+      "measured_hz": 1397.2708,
+      "trim_start": 1396,
+      "loop_swell_db": [
+        2.04,
+        0.24
+      ]
+    },
+    {
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_A#0_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Bassoon/sus/PSBassoon_A%230_v2_1.wav",
+      "source_sha256": "6d3a270be26862e40c1689111c0f91ef0ff9439ecb9805db344f1aba6ff7fff5",
+      "family": 11,
+      "layer": 0,
+      "measured_hz": 58.264,
+      "trim_start": 550,
+      "loop_swell_db": [
+        2.33,
+        1.04
+      ]
+    },
+    {
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_F1_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Bassoon/sus/PSBassoon_F1_v2_1.wav",
+      "source_sha256": "e510329bca3889d1a6e826f4ca1644c8347567e1dcc751eee6f6a2143935d0bc",
+      "family": 11,
+      "layer": 0,
+      "measured_hz": 87.3069,
+      "trim_start": 508,
+      "loop_swell_db": [
+        1.43,
+        0.88
+      ]
+    },
+    {
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_C2_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Bassoon/sus/PSBassoon_C2_v2_1.wav",
+      "source_sha256": "836cda0976c44922375cf2cad0ac280c4638d8b943f44cadb1c3a75259bd22cf",
+      "family": 11,
+      "layer": 0,
+      "measured_hz": 130.8148,
+      "trim_start": 260,
+      "loop_swell_db": [
+        1.25,
+        0.36
+      ]
+    },
+    {
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_G2_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Bassoon/sus/PSBassoon_G2_v2_1.wav",
+      "source_sha256": "74f59f6ad00584ed709b16c58769f099b64e4886c3af1bb74f2626719611f35c",
+      "family": 11,
+      "layer": 0,
+      "measured_hz": 196.023,
+      "trim_start": 257,
+      "loop_swell_db": [
+        1.11,
+        0.27
+      ]
+    },
+    {
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_C3_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Bassoon/sus/PSBassoon_C3_v2_1.wav",
+      "source_sha256": "c1162eee63c6334ee60c7add58ce0e2f8d87b427c7a7cb64930f3bd63494e121",
+      "family": 11,
+      "layer": 0,
+      "measured_hz": 261.643,
+      "trim_start": 1163,
+      "loop_swell_db": [
+        0.58,
+        0.27
+      ]
+    },
+    {
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_G#3_v2_1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Bassoon/sus/PSBassoon_G%233_v2_1.wav",
+      "source_sha256": "0fdc30b08b1836e444c0f6f6bc2bec485973c28d4bfeb110572038777558984a",
+      "family": 11,
+      "layer": 0,
+      "measured_hz": 415.3037,
+      "trim_start": 576,
+      "loop_swell_db": [
+        0.59,
+        0.21
+      ]
+    },
+    {
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_F#0_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/Pizz/BKCtbss_Pizz_F%230_v1_rr1.wav",
+      "source_sha256": "8d1337d6ba2b8e65e52d0623df7afa66b4b8d1863116cc6f798f629b7e27634b",
+      "family": 12,
+      "layer": 0,
+      "measured_hz": 45.9461,
+      "trim_start": 18,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_A#0_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/Pizz/BKCtbss_Pizz_A%230_v1_rr1.wav",
+      "source_sha256": "c172382a1c8db63d1893e909da3c0f7f96a60371dce0cfe712e64fd622066fbe",
+      "family": 12,
+      "layer": 0,
+      "measured_hz": 58.4227,
+      "trim_start": 10,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_E1_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/Pizz/BKCtbss_Pizz_E1_v1_rr1.wav",
+      "source_sha256": "818fd3e7cc5200774333fc5dbb37e021ed0f155918cafe129acc0e90d37f9d49",
+      "family": 12,
+      "layer": 0,
+      "measured_hz": 80.358,
+      "trim_start": 0,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_A1_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/Pizz/BKCtbss_Pizz_A1_v1_rr1.wav",
+      "source_sha256": "c88e632ac4f716d4e85112d6ea5bbe2d27d67019296787c25d27178a9e5f18ac",
+      "family": 12,
+      "layer": 0,
+      "measured_hz": 112.013,
+      "trim_start": 0,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_E2_v1_rr1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/Pizz/BKCtbss_Pizz_E2_v1_rr1.wav",
+      "source_sha256": "b5c3dd4943ea9a3f1aa23ed07c827ec8851e28a7254bab7811b706c09fceb231",
+      "family": 12,
+      "layer": 0,
+      "measured_hz": 164.9588,
+      "trim_start": 0,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Cello Section/pizzT/pizzT_C1_v2_RR1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/pizzT/pizzT_C1_v2_RR1.wav",
+      "source_sha256": "eb757d0688c447d609e9583c3943b9b51f5dee3c8b309ef6e03cac0c36910f15",
+      "family": 13,
+      "layer": 0,
+      "measured_hz": 65.4745,
+      "trim_start": 51,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Cello Section/pizzT/pizzT_G1_v2_RR1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/pizzT/pizzT_G1_v2_RR1.wav",
+      "source_sha256": "a12366cff3dd68c4a1622bd504161caa9ed18d23f9d03ed413936a0829188cf1",
+      "family": 13,
+      "layer": 0,
+      "measured_hz": 97.9945,
+      "trim_start": 119,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Cello Section/pizzT/pizzT_D2_v2_RR1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/pizzT/pizzT_D2_v2_RR1.wav",
+      "source_sha256": "5f80f5fd2f8f3f2cc33b8e7cdba1c5984b5a8158d6d34cd03fe48ae46b335461",
+      "family": 13,
+      "layer": 0,
+      "measured_hz": 146.7863,
+      "trim_start": 41,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Cello Section/pizzT/pizzT_A2_v2_RR1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/pizzT/pizzT_A2_v2_RR1.wav",
+      "source_sha256": "187df4d1d5621877d32cbfb3d174dcacb85aa59caf3359d9ce398bec4f7ccf56",
+      "family": 13,
+      "layer": 0,
+      "measured_hz": 219.8321,
+      "trim_start": 0,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Cello Section/pizzT/pizzT_E3_v2_RR1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/pizzT/pizzT_E3_v2_RR1.wav",
+      "source_sha256": "ad072009df18f24c4ae0b2fd4b8cbf803a1ba1d195fcae5ea8c882111e9555b3",
+      "family": 13,
+      "layer": 0,
+      "measured_hz": 329.5114,
+      "trim_start": 0,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Strings/Cello Section/pizzT/pizzT_B3_v2_RR1.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/pizzT/pizzT_B3_v2_RR1.wav",
+      "source_sha256": "016e6cc084ae4e60eb52b0a60ffada2314211f1eb5bcc95c6a73b64ac0afbde8",
+      "family": 13,
+      "layer": 0,
+      "measured_hz": 493.9968,
+      "trim_start": 0,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Percussion/Glock/glock_medium_G5.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Percussion/Glock/glock_medium_G5.wav",
+      "source_sha256": "7045c0ef7260e2f1ad11a64406cf7575ed898d1207a91104d33d78caefac63e4",
+      "family": 14,
+      "layer": 0,
+      "measured_hz": 1564.1549,
+      "trim_start": 29,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Percussion/Glock/glock_medium_C6.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Percussion/Glock/glock_medium_C6.wav",
+      "source_sha256": "e942cbf502cf6731df2925945fe3234c876cb63f047d91007b6929887f9e4904",
+      "family": 14,
+      "layer": 0,
+      "measured_hz": 2071.2599,
+      "trim_start": 0,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Percussion/Glock/glock_medium_G6.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Percussion/Glock/glock_medium_G6.wav",
+      "source_sha256": "a2ba94e59119cd5272c1161fc8b8fbfb94c7b44de45a9a6cc5973b1c332103af",
+      "family": 14,
+      "layer": 0,
+      "measured_hz": 3163.5542,
+      "trim_start": 30,
+      "loop_swell_db": null
+    },
+    {
+      "path": "Percussion/Glock/glock_medium_C7.wav",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Percussion/Glock/glock_medium_C7.wav",
+      "source_sha256": "b2ecbe0e60c983bbfaa49a1f45f8a11559f7dba27b8c8a032eb2cb7366a36910",
+      "family": 14,
+      "layer": 0,
+      "measured_hz": 4261.2685,
+      "trim_start": 0,
       "loop_swell_db": null
     }
   ]

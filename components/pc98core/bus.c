@@ -161,3 +161,12 @@ void bus_write_block(UINT32 a,const void *src,UINT n)
  const UINT8 *s=(const UINT8*)src;
  while(n--)bus_wr8(a++,*s++);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void bus_state(SsCtx *c)
+{
+ /* the page table holds functions: it is built again from the access mode */
+ SS_VAR(c,"BVMD",video_mode);
+ if(ss_loading(c))bus_set_map(0);
+}

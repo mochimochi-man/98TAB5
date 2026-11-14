@@ -337,3 +337,10 @@ void egc_bind(void)
 	for (i = 0; i < 16; i++) io_port(0x4a0 + i, port_w8, NULL);
 	for (i = 0; i < 16; i += 2) io_port16(0x4a0 + i, port_w16, NULL);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void egc_state(SsCtx *c)
+{
+	SS_VAR(c, "EGC ", e);
+}

@@ -308,3 +308,26 @@ void video_frame(void)
 		compose_frame(all);
 	}
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void video_state(SsCtx *c)
+{
+	/* only the phases of the blink and the cursor: the rest is drawn again from the machine state */
+	SS_VAR(c, "VIDf", s_frames);
+	SS_VAR(c, "VIDc", s_cursor_phase);
+	SS_VAR(c, "VIDb", s_blink_phase);
+}
+
+/* after a load: forget what was shown and draw everything again */
+void video_state_loaded(void)
+{
+	s_cursor_cell = 0xffffffffu;
+	s_shown_page = 0xff;
+	s_last_kind = 0xff;
+	memset(g_text_dirty, 0xff, sizeof(g_text_dirty));
+	memset(g_grph_dirty, 0xff, sizeof(g_grph_dirty));
+	memset(g_line_dirty, LD_ALL, sizeof(g_line_dirty));
+	g_vreq.layout = 1;
+	video_redraw_all();
+}

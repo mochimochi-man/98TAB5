@@ -213,3 +213,16 @@ void rtc_bind(void)
 
 	io_sys(0x20, 0xf1, out, NULL, 1);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void rtc_state(SsCtx *c)
+{
+	SS_VAR(c, "RTCr", s_reg);
+	SS_VAR(c, "RTCs", s_shifted);
+	SS_VAR(c, "RTCh", s_shifting);
+	SS_VAR(c, "RTCc", s_cmd4);
+	SS_VAR(c, "RTCl", s_last);
+	SS_VAR(c, "RTCd", s_dout);
+	SS_VAR(c, "RTCo", s_offset);
+}

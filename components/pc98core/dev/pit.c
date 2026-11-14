@@ -280,3 +280,14 @@ void pit_bind(void)
 	io_sys(0x71, 0xcf1, out, in, 4);
 	for (i = 0; i < 4; i++) io_port(0x3fd9 + i * 2, out[i], in[i]);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void pit_state(SsCtx *c)
+{
+	SS_VAR(c, "PIT ", s_ctr);
+}
+void pit_fns(const void **t)
+{
+	t[SF_PIT_TIMER0] = (const void *)timer0_event;
+}

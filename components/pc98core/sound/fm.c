@@ -153,10 +153,11 @@ void fm_key(FmChip *f, REG8 v)
 
 	if (c == 3) return;
 	for (s = 0; s < 4; s++) {
-        const UINT i=slot_op[s],on=(v >> (4+s))&1;
-        if(on && !f->ch[c].op[i].key) f->orchestra_key_serial[c][i]++;
-        key(&f->ch[c].op[i],on);
-    }
+		const UINT i = slot_op[s], on = (v >> (4 + s)) & 1;
+
+		if (on && !f->ch[c].op[i].key) f->orchestra_key_serial[c][i]++;	/* a key-on, for the replacement */
+		key(&f->ch[c].op[i], on);
+	}
 }
 
 void fm_csm(FmChip *f)
@@ -165,7 +166,7 @@ void fm_csm(FmChip *f)
 
 	for (i = 0; i < 4; i++) {
 		key(&f->ch[2].op[i], 0);
-        f->orchestra_key_serial[2][i]++;
+		f->orchestra_key_serial[2][i]++;
 		key(&f->ch[2].op[i], 1);
 	}
 }
@@ -390,6 +391,7 @@ void fm_render(void *ctx, SINT32 *lr, UINT frames)
 		return;
 	}
 	for (; frames; frames--, lr += 2) {
+		const int orch = orchestra_enabled() || f->orchestra_mix;	/* Synthesizer / Orchestra playing, or fading out */
 		UINT32 need = s_step;
 		SINT64 acc = 0;
 		SINT32 v;
@@ -402,28 +404,32 @@ void fm_render(void *ctx, SINT32 *lr, UINT frames)
 			}
 			take = need < f->cur_left ? need : f->cur_left;
 			acc += (SINT64)f->cur * take;
-			f->orchestra_nacc[0] += (SINT64)f->orchestra_native[0] * take;
-			f->orchestra_nacc[1] += (SINT64)f->orchestra_native[1] * take;
-			f->orchestra_nacc[2] += (SINT64)f->orchestra_native[2] * take;
+			if (orch) {	/* each channel's own share, for the replacement's loudness matching */
+				f->orchestra_nacc[0] += (SINT64)f->orchestra_native[0] * take;
+				f->orchestra_nacc[1] += (SINT64)f->orchestra_native[1] * take;
+				f->orchestra_nacc[2] += (SINT64)f->orchestra_native[2] * take;
+			}
 			need -= take;
 			f->cur_left -= take;
 		}
 		v = (SINT32)((acc / (SINT64)s_step * (SINT64)s_gain) >> 16);
-        if (orchestra_enabled() || f->orchestra_mix) {
-            SINT32 ol, oright;
-            for (UINT c = 0; c < 3; c++) {
-                f->orchestra_native[c] = (SINT32)(f->orchestra_nacc[c] / (SINT64)s_step);
-                f->orchestra_nacc[c] = 0;
-            }
-            orchestra_frame(f, &ol, &oright);
-            ol = (SINT32)(((SINT64)ol * s_gain) >> 16);
-            oright = (SINT32)(((SINT64)oright * s_gain) >> 16);
-            lr[0] += (SINT32)(((SINT64)v * (1024 - f->orchestra_mix) + (SINT64)ol * f->orchestra_mix) / 1024);
-            lr[1] += (SINT32)(((SINT64)v * (1024 - f->orchestra_mix) + (SINT64)oright * f->orchestra_mix) / 1024);
-        } else {
-            lr[0] += v;
-            lr[1] += v;
-            f->orchestra_nacc[0] = f->orchestra_nacc[1] = f->orchestra_nacc[2] = 0;
-        }
+		if (orch) {
+			SINT32 ol, oright;
+			UINT c;
+
+			for (c = 0; c < 3; c++) {
+				f->orchestra_native[c] = (SINT32)(f->orchestra_nacc[c] / (SINT64)s_step);
+				f->orchestra_nacc[c] = 0;
+			}
+			orchestra_frame(f, &ol, &oright);
+			ol = (SINT32)(((SINT64)ol * s_gain) >> 16);
+			oright = (SINT32)(((SINT64)oright * s_gain) >> 16);
+			lr[0] += (SINT32)(((SINT64)v * (1024 - f->orchestra_mix) + (SINT64)ol * f->orchestra_mix) / 1024);
+			lr[1] += (SINT32)(((SINT64)v * (1024 - f->orchestra_mix) + (SINT64)oright * f->orchestra_mix) / 1024);
+		}
+		else {
+			lr[0] += v;
+			lr[1] += v;
+		}
 	}
 }

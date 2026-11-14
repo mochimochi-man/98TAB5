@@ -28,51 +28,70 @@ typedef struct {
 	SINT32	fbmem[2];	/* the last two outputs of slot 1 */
 } FmCh;
 
-/* Optional host timbre replacement. No guest registers are changed. */
+/* ---- Orchestra and Synthesizer (orchestra.c, orchestra_sampler.c): host-side timbre replacement ----
+ * No guest register is changed. These structures are part of the board's state file (board26k.c saves it whole),
+ * so their layout stays as it is. */
+
+/* What kind of part an FM patch plays, as orchestra_family() tells them apart. */
+enum { ORCH_BOWED, ORCH_BRASS, ORCH_REED, ORCH_PLUCKED, ORCH_PARTS };
+
+/* The carriers of an FM algorithm, as an operator mask in register order. */
+static inline UINT orchestra_carriers(UINT algorithm)
+{
+	return algorithm < 4 ? 8 : algorithm == 4 ? 12 : algorithm == 7 ? 15 : 14;
+}
+
+/* Synthesizer: one voice per audible carrier, including CH3 mode. */
 typedef struct {
- UINT32 phase[2];
- SINT32 envelope;                 /* Q12 linear amplitude */
- UINT32 vibrato;
- UINT32 noise, transient;
- SINT32 air;
- UINT8 family, was_key;
+	UINT32	phase[2];
+	SINT32	envelope;		/* Q12 linear amplitude */
+	UINT32	vibrato;		/* not used any more; kept for the state file */
+	UINT32	noise, transient;
+	SINT32	air;
+	UINT8	family, was_key;
 } OrchestraVoice;
 
+/* Orchestra: one recording playing. */
 typedef struct {
- UINT32 pos[2];                 /* playback position (pos[1] spare) */
- UINT32 key_serial;             /* last key-on event observed by the sampler */
- SINT32 envelope;
- UINT16 zone[2];                /* 0xffff: layer unused (harp) */
- UINT8 section, family, was_key, ready; /* family: 0 bowed, 3 plucked */
- UINT8 merge_group;             /* one-based group; zero means not grouped */
- UINT8 layer;                   /* 0 loud recording, 1 soft recording */
+	UINT32	pos[2];			/* playback position; [1] the recording being faded out */
+	UINT32	key_serial;		/* last key-on event observed by the sampler */
+	SINT32	envelope;
+	UINT16	zone[2];		/* [1] the recording being faded out; 0xffff: none */
+	UINT8	section;		/* the player (orchestra_sampler.c) */
+	UINT8	family;			/* ORCH_*: the kind of part */
+	UINT8	was_key, ready;
+	UINT8	merge_group;		/* one-based group; zero means not grouped */
+	UINT8	layer;			/* 0 loud recording, 1 soft recording */
+	UINT8	fade;			/* what is left of zone[1], in 255ths */
 } OrchestraSampleVoice;
+/* In the state file as it is: the last field went into the padding. */
+typedef char orchestra_sample_voice_size[sizeof(OrchestraSampleVoice) == 28 ? 1 : -1];
 
 /* Loudness follower for one replaced part (SSG); see orchestra.c. */
 typedef struct {
- UINT64 npow, rpow;
- UINT32 rpeak;
- SINT32 prev[2];
- UINT16 gain;
+	UINT64	npow, rpow;
+	UINT32	rpeak;
+	SINT32	prev[2];
+	UINT16	gain;
 } OrchestraMatch;
 
 typedef struct {
- UINT32 orchestra_key_serial[3][4]; /* host-only key-on events, outside native state */
- OrchestraSampleVoice samples[3][4];
- UINT16 orchestra_sample_mix;
- UINT8 orchestra_last_mode;
- OrchestraVoice orchestra[3][4]; /* one voice per audible carrier, including CH3 mode */
- UINT16 orchestra_mix;            /* 0..1024, click-free mode transition */
- /* Loudness matching: each replaced part follows the power its native FM
-  * channel actually produces, so the game's own FM/SSG and part balance hold. */
- SINT32 orchestra_native[3];      /* latest native channel output */
- SINT64 orchestra_nacc[3];        /* its average over one output frame */
- SINT32 orchestra_prev[2][3];     /* loudness pre-emphasis history */
- UINT64 orchestra_npow[3], orchestra_rpow[3];
- UINT32 orchestra_rpeak[3];       /* decaying pre-gain peak, for headroom */
- UINT16 orchestra_gain[3];        /* Q10; 0 = not yet measured (unity) */
- UINT8 orchestra_tick;
- UINT8	ch3mode;	/* register 27h bits 7-6 */
+	UINT32	orchestra_key_serial[3][4];	/* host-only key-on events, outside native state */
+	OrchestraSampleVoice samples[3][4];
+	UINT16	orchestra_sample_mix;		/* 0..1024: Synthesizer to Orchestra */
+	UINT8	orchestra_last_mode;
+	OrchestraVoice orchestra[3][4];
+	UINT16	orchestra_mix;			/* 0..1024: native to replaced, click-free mode transition */
+	/* Loudness matching: each replaced part follows the power its native FM channel actually produces, so the
+	 * game's own FM/SSG and part balance hold. */
+	SINT32	orchestra_native[3];		/* each channel's native output: per native sample, then its frame average */
+	SINT64	orchestra_nacc[3];		/* that average being summed */
+	SINT32	orchestra_prev[2][3];		/* loudness pre-emphasis history */
+	UINT64	orchestra_npow[3], orchestra_rpow[3];
+	UINT32	orchestra_rpeak[3];		/* decaying pre-gain peak, for headroom */
+	UINT16	orchestra_gain[3];		/* Q10; 0 = not yet measured (unity) */
+	UINT8	orchestra_tick;
+	UINT8	ch3mode;	/* register 27h bits 7-6 */
 	UINT8	ch3applied;	/* the mode the frequencies were computed for */
 	FmCh	ch[3];
 	UINT16	ch3_fnum[3];	/* A8h-AAh / ACh-AEh: slots 1, 2, 3 of channel 3 in the special mode */
@@ -90,17 +109,21 @@ void	fm_write(FmChip *f, UINT reg, REG8 v);		/* 30h-B6h */
 void	fm_key(FmChip *f, REG8 v);			/* register 28h */
 void	fm_csm(FmChip *f);				/* Timer A overflow in CSM mode */
 void	fm_render(void *f, SINT32 *lr, UINT frames);
-void orchestra_open(UINT rate);
-void orchestra_sample_open(UINT rate);
-void orchestra_sample_frame(FmChip*,SINT32*,SINT32*);
-void orchestra_sample_channels(FmChip*,SINT32 l[3],SINT32 r[3],UINT8 owner[3]);
-UINT orchestra_family(const FmCh*);
-SINT32 orchestra_level(const FmOp*);
-int orchestra_enabled(void);
-void orchestra_frame(FmChip *f, SINT32 *left, SINT32 *right);
-void orchestra_match_feed(OrchestraMatch *m, SINT32 native, SINT32 replaced, SINT32 peak);
-void orchestra_match_adjust(OrchestraMatch *m, UINT64 native_power);
-void orchestra_ssg_voice(OrchestraSampleVoice *v, UINT32 pitch, SINT32 level, int note, SINT32 *l, SINT32 *r);
+
+/* orchestra.c */
+void	orchestra_open(UINT rate);
+int	orchestra_enabled(void);			/* 0 native, 1 Synthesizer, 2 Orchestra */
+void	orchestra_frame(FmChip *f, SINT32 *left, SINT32 *right);
+UINT	orchestra_family(const FmCh *ch);
+SINT32	orchestra_level(const FmOp *o);
+UINT	orchestra_gain_now(UINT16 *gain, SINT32 peak);
+void	orchestra_match_feed(OrchestraMatch *m, SINT32 native, SINT32 replaced, SINT32 peak);
+void	orchestra_match_adjust(OrchestraMatch *m, UINT64 native_power);
+/* orchestra_sampler.c */
+void	orchestra_sample_open(UINT rate);
+void	orchestra_sample_channels(FmChip *f, SINT32 l[3], SINT32 r[3], UINT8 owner[3]);
+void	orchestra_sample_frame(FmChip *f, SINT32 *left, SINT32 *right);
+void	orchestra_ssg_voice(OrchestraSampleVoice *v, UINT32 pitch, SINT32 level, int note, SINT32 *l, SINT32 *r);
 
 /* ---- SSG half (ssg.c) ---- */
 typedef struct {
@@ -114,9 +137,10 @@ typedef struct {
 	/* Orchestra only, host-side: tone-only channels play bowed strings. */
 	OrchestraSampleVoice orch[3];
 	OrchestraMatch orch_match[3];
-	UINT16	orch_tp[3];
+	UINT16	orch_tp[3];	/* the tone period the voice is playing */
 	UINT16	orch_age[3];	/* frames since the channel's note began */
-	UINT8	orch_active, orch_tick;
+	UINT8	orch_active;	/* a voice is still sounding */
+	UINT8	orch_tick;	/* frames to the next loudness adjustment */
 } SsgChip;
 
 void	ssg_reset(SsgChip *s);

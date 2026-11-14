@@ -21,6 +21,8 @@ extern "C" int ets_printf(const char *fmt, ...);
 #include <esp_system.h>   // esp_restart() for the RESET menu item
 #include <esp_app_desc.h> // the version on the title line
 #include <dirent.h>       // POSIX opendir/readdir over the SD VFS ("/sd")
+#include <stdio.h>
+#include <time.h>
 
 extern "C" {
 #include <compiler.h>
@@ -29,6 +31,7 @@ extern "C" {
 #include "media/drives.h"
 #include "dev/atapi.h"
 #include "util/pcstr.h"
+#include <state.h>       // pc98_state_save / pc98_state_load: the State Save screen
 #include "board_pins.h"
 int  ets_printf(const char *fmt, ...);
 int  usb_kbd_pop(uint8_t *nkey, uint8_t *down);   // usb_kbd.cpp
@@ -79,6 +82,21 @@ extern "C" void audio_set_fx(int mode);  // audio_codec.cpp: 0 Original, 2 Hall,
 extern "C" int  audio_get_fx(void);
 extern "C" void lcd_lamps_enable(bool on);   // lcd_mipi.cpp: the drive lamps
 extern "C" bool lcd_lamps_enabled(void);
+extern "C" void lcd_set_osk(int mode);        // lcd_mipi.cpp: the on-screen keyboard, 0 off, 1 portrait, 2 landscape, 3 landscape-game
+extern "C" int  lcd_osk_mode(void);
+extern "C" int  touch_mouse_speed(void);       // touch_mouse.cpp: 0 low, 1 medium, 2 high
+extern "C" void touch_mouse_set_speed(int s);
+
+// Rows with three or more choices step round and round with LEFT / RIGHT as well as RET. The number rows
+// (CPU clock, backlight, volume) and the two-way ones (clock family, drive lamps) stop at their ends.
+static int wrap_step(int cur, int dir, int n) { return ((cur + dir) % n + n) % n; }
+// The screen keyboard modes in the order the row steps through them: the landscape ones first.
+static const int s_osk_order[4] = { 0, 2, 3, 1 };
+static int osk_step(int dir) {
+    int at = 0;
+    for (int i = 0; i < 4; i++) if (s_osk_order[i] == lcd_osk_mode()) at = i;
+    return s_osk_order[wrap_step(at, dir, 4)];
+}
 
 // RET wraps around; the arrow keys nudge, which is what anyone actually wants
 // when the far end of the range is one step in the wrong direction.
@@ -250,6 +268,7 @@ typedef struct {
     uint8_t dim;         // the label in the dim colour (not available)
 } UiRow;
 
+static int s_ui_vcol;   // nonzero: values start this far into the row instead of ending at its right
 // One group of rows at y. `on` is the selected row (or -1). `right` leaves room on the right (a scrollbar).
 static int ui_group(int x0, int x1, int y, const UiRow *rows, int n, int on, int right) {
     const int xe = x1 - right;
@@ -290,7 +309,7 @@ static int ui_group(int x0, int x1, int y, const UiRow *rows, int n, int on, int
                 snprintf(v, sizeof(v), "%s", w->value);
             }
             if (len) {
-                const int vx = vx1 - len * 8;
+                const int vx = s_ui_vcol ? x0 + s_ui_vcol : vx1 - len * 8;
                 lcd_ui_text(vx, ry + 4, v, sel ? UI_SELVAL : UI_DIM);
                 if (w->kind == UI_ADJUST && sel) lcd_ui_chev(vx - 12, ry + 8, UI_ACCENT, -1);
                 if (w->mark) lcd_ui_dot(vx - 10, ry + 12, UI_ACCENT);
@@ -388,7 +407,7 @@ static int ext_match(const char *name, int drive) {
 // Shown on the screenshot row once one has been taken.
 static char s_last_shot[24] = {0};
 
-// The main screen: two columns of grouped settings. sel 0..17 runs down the left column and on into the right.
+// The main screen: two columns of grouped settings. sel 0..21 runs down the left column and on into the right.
 static int sound_step(int current,int direction,bool wrap) {
     static const int order[]={0,2,3,4};
     int at=0;for(int i=0;i<4;i++)if(order[i]==current)at=i;
@@ -402,6 +421,8 @@ static int sound_step(int current,int direction,bool wrap) {
 static void draw_drives(int sel) {
     static const char *const l200[] = {"Original", "Doubled", "Interpolated"};
     static const char *const sfx[] = {"Original", "Original", "Hall", "Synthesizer (HVY)", "Orchestra (HVY)"};
+    static const char *const oskn[] = {"Off", "Portrait", "Landscape", "Landscape-GAME"};
+    static const char *const msp[] = {"Low", "Medium", "High"};
     char clk[16], cpu[48], bios[32], font[32], bl[16], vol[16];
     const unsigned mhz100 = (unsigned)((uint64_t)g_settings.base_clock * g_settings.clock_mul / 10000u);
     snprintf(clk, sizeof(clk), "%u.%02uMHz x%u", mhz100 / 100, mhz100 % 100, (unsigned)g_settings.clock_mul);
@@ -427,12 +448,13 @@ static void draw_drives(int sel) {
         { "FDD1", d[0], UI_ACTION, 0, 0 }, { "FDD2", d[1], UI_ACTION, 0, 0 }, { "HDD", d[2], UI_ACTION, 0, 0 },
         { "CD-ROM", cdv, UI_ACTION, 0, 0 }, { "Create New Disk", NULL, UI_ACTION, 0, 0 },
     };
-    const UiRow sys[5] = {
+    const UiRow sys[6] = {
         { "CPU Clock", clk, UI_ADJUST, 0, 0 }, { "Clock Family", family, UI_ADJUST, 0, 0 },
         { "CPU", cpu, UI_ADJUST, 0, 0 },
         { "BIOS", bios, UI_ACTION, 0, 0 }, { "Font", font, UI_ACTION, 0, 0 },
+        { "Touch Mouse Speed", msp[touch_mouse_speed()], UI_ADJUST, 0, 0 },
     };
-    const UiRow av[5] = {
+    const UiRow av[6] = {
         { "Backlight", bl, UI_ADJUST, 0, 0 }, { "Volume", vol, UI_ADJUST, 0, 0 },
         // How a 200-line screen's missing lines are drawn (main.cpp).
         { "200-Line Graphics", l200[(g_line200 >= 0 && g_line200 <= 2) ? g_line200 : 0], UI_ADJUST, 0, 0 },
@@ -440,11 +462,13 @@ static void draw_drives(int sel) {
         { "FM Sound", sfx[audio_get_fx()], UI_ADJUST, 0, 0 },
         // The FDD1 / FDD2 / CD-ROM / HDD lamps under the picture (lcd_mipi.cpp).
         { "Drive Lamps", lcd_lamps_enabled() ? "On" : "Off", UI_ADJUST, 0, 0 },
+        { "Screen Keyboard", oskn[lcd_osk_mode()], UI_ADJUST, 0, 0 },
     };
     // Screenshot shows the last file written, so the row itself is the confirmation. The readers reboot into the
     // USB modes (usb_msc.cpp); Reset sits last, where an action that throws the machine away belongs.
-    const UiRow tools[4] = {
+    const UiRow tools[5] = {
         { "Screenshot", s_last_shot[0] ? s_last_shot : NULL, UI_ACTION, 0, 0 },
+        { "State Save", NULL, UI_ACTION, 0, 0 },
         { "SD Card Reader", NULL, UI_ACTION, 0, 0 }, { "Disk Image Reader", NULL, UI_ACTION, 0, 0 },
         { "Reset", "Save & Reboot", UI_ACTION, 0, 0 },
     };
@@ -452,14 +476,14 @@ static void draw_drives(int sel) {
     const int lx0 = UI_L, lx1 = 308, rx0 = 332, rx1 = UI_R;
     int y = 50;
     ui_section(lx0, lx1, y, "DISKS", NULL);
-    y = ui_group(lx0, lx1, y + 22, disks, 5, sel, 0) + 14;
+    y = ui_group(lx0, lx1, y + 22, disks, 5, sel, 0) + 8;   // 8, as on the right: SYSTEM has six rows
     ui_section(lx0, lx1, y, "SYSTEM", NULL);
-    ui_group(lx0, lx1, y + 22, sys, 5, sel - 5, 0);
+    ui_group(lx0, lx1, y + 22, sys, 6, sel - 5, 0);
     y = 50;
     ui_section(rx0, rx1, y, "DISPLAY & SOUND", NULL);
-    y = ui_group(rx0, rx1, y + 22, av, 5, sel - 10, 0) + 14;
+    y = ui_group(rx0, rx1, y + 22, av, 6, sel - 11, 0) + 8;   // 8, not 14: TOOLS has five rows now and must clear the key caps
     ui_section(rx0, rx1, y, "TOOLS", NULL);
-    ui_group(rx0, rx1, y + 22, tools, 4, sel - 15, 0);
+    ui_group(rx0, rx1, y + 22, tools, 5, sel - 17, 0);
     static const UiKey keys[4] = {
         { UK_UPDOWN, NULL, "Select" }, { UK_LEFTRIGHT, NULL, "Change" }, { 0, "Enter", "OK" }, { 0, "Esc", "Close" },
     };
@@ -637,7 +661,7 @@ static void apply_image(int drive, const char *path) {
         pcs_copy(g_settings.hdd_image[0], path ? path : "", sizeof(g_settings.hdd_image[0]));
     } else if (path && fdd_ext_is(path)) {
         if (!fdd_ext_mount(drive, path)) {
-            g_settings.fdd_image[drive][0] = ' ';
+            g_settings.fdd_image[drive][0] = '\0';
         }
     } else if (path) {
         // Out, then in 0.4s later (drv_fd_tick), as a hand swapping
@@ -922,6 +946,8 @@ static void save_settings(void) {
         nvs_set_u8(nh, "line200", (uint8_t)g_line200);
         nvs_set_u8(nh, "soundfx", (uint8_t)audio_get_fx());
         nvs_set_u8(nh, "lamps", lcd_lamps_enabled() ? 1 : 0);
+        nvs_set_u8(nh, "osk", (uint8_t)lcd_osk_mode());
+        nvs_set_u8(nh, "mousespd", (uint8_t)touch_mouse_speed());
         extern bool g_sd_ok;
         if (g_sd_ok) {      // no card: every name reads as missing, keep what was stored
             nvs_set_str(nh, "biosfile", g_bios_file);
@@ -985,6 +1011,459 @@ static int choose_image_drive(void) {
     }
 }
 
+// Layout of the slot list: the screen is the 640x400 canvas, so the list and a full-size thumbnail both fit.
+#define ST_SLOTS    10
+#define ST_SEC_Y    50
+#define ST_Y0       72
+#define ST_KEY_SEL  "Select"
+static int st_div(void) { return 1; }
+static int st_vis(void) { return ST_SLOTS; }
+
+// ---- State Save: ten slots on the SD card ---------------------------------------------------------------------
+//
+// A slot file is /sd/PC98/STATE/SLOTnn.STA: a StHdr, the thumbnail's pixels (when the header says there is one),
+// then the stream pc98_state_save() writes. The stream is only good for the firmware that wrote it, so the header
+// carries the build's ELF SHA and a slot made by another build is listed but refuses to load.
+// The files are written and read here, from the menu with the machine stopped, never inside machine_frame.
+extern bool g_sd_ok;
+extern "C" const void *lcd_last_frame(int *w, int *h, int *stride);   // lcd_*.cpp: the last frame handed over
+extern "C" void lcd_ui_blit(int x, int y, int w, int h, const uint16_t *src);   // lcd_*.cpp
+
+#define ST_DIR      "/sd/PC98/STATE"
+#define ST_THUMB_W  160                  // the screen at 1/4
+#define ST_THUMB_H  100
+#define ST_VER      1
+#define ST_IOBUF    (16 * 1024)   // aligned DMA memory: from anything else the SD driver writes one sector at a time (~0.25 MB/s)
+
+typedef struct {
+    char     magic[4];                   // "98TS"
+    uint32_t ver;
+    uint8_t  elf_sha[32];                // the build that wrote it
+    int64_t  time;                       // seconds since the epoch; 0 = the clock was not set
+    uint32_t seq;                        // saves counted up over the slots: what is shown when there is no clock
+    uint32_t thumb_w, thumb_h;           // 0 = no thumbnail follows
+    char     name[96];                   // FDD1's image, or the HDD's when FDD1 is empty
+    char     fw_ver[32];                 // the writing build's version string, for the "other firmware" prompt
+} StHdr;
+
+typedef struct {
+    uint8_t  used;                       // a file is there
+    uint8_t  bad;                        // ...but not one of ours
+    uint8_t  other;                      // ...written by another build
+    uint8_t  thumb;                      // ...and has a thumbnail
+    char     fw_ver[32];
+    int64_t  time;
+    uint32_t seq;
+    char     name[96];
+} StSlot;
+
+static StSlot s_st[ST_SLOTS];
+static uint16_t *s_th_buf;               // [0] 160x100 shown, [1] 160x100 being saved, [2] 80x50 shown on a small panel
+static int s_th_for = -1;                // the slot s_th_buf[0] holds (-1 none)
+
+#define TH_PIX (ST_THUMB_W * ST_THUMB_H)
+static uint16_t *th_shown(void) { return s_th_buf; }
+static uint16_t *th_new(void)   { return s_th_buf + TH_PIX; }
+static uint16_t *th_small(void) { return s_th_buf + 2 * TH_PIX; }
+
+static void st_path(char *out, size_t cap, int slot, bool tmp) {
+    snprintf(out, cap, ST_DIR "/SLOT%02d.%s", slot + 1, tmp ? "TMP" : "STA");
+}
+
+static bool st_clock_ok(int64_t t) {
+    return t >= 1609459200;              // 2021-01-01: anything earlier is a clock that was never set
+}
+
+// Average n x n blocks of an RGB565 picture into dw x dh.
+static void st_reduce(const uint16_t *src, int stride, int dw, int dh, int n, uint16_t *dst) {
+    const int cnt = n * n;
+    for (int y = 0; y < dh; y++) {
+        for (int x = 0; x < dw; x++) {
+            int r = 0, g = 0, b = 0;
+            for (int j = 0; j < n; j++) {
+                const uint16_t *p = src + (size_t)(y * n + j) * stride + x * n;
+                for (int i = 0; i < n; i++) {
+                    const unsigned v = p[i];
+                    r += v >> 11;
+                    g += (v >> 5) & 63;
+                    b += v & 31;
+                }
+            }
+            dst[y * dw + x] = (uint16_t)(((r / cnt) << 11) | ((g / cnt) << 5) | (b / cnt));
+        }
+    }
+}
+
+// Read one slot's header. Reading never fails the list: a file that is not ours is shown as such.
+static void st_scan_one(int i) {
+    StSlot *s = &s_st[i];
+    memset(s, 0, sizeof(*s));
+    char path[64];
+    st_path(path, sizeof(path), i, false);
+    FILE *f = fopen(path, "rb");
+    if (!f) return;
+    s->used = 1;
+    StHdr h;
+    if (fread(&h, 1, sizeof(h), f) != sizeof(h) || memcmp(h.magic, "98TS", 4) != 0 || h.ver != ST_VER) {
+        s->bad = 1;
+    } else {
+        s->other = memcmp(h.elf_sha, esp_app_get_description()->app_elf_sha256, 32) != 0;
+        s->thumb = h.thumb_w == ST_THUMB_W && h.thumb_h == ST_THUMB_H;
+        s->time = h.time;
+        s->seq = h.seq;
+        snprintf(s->name, sizeof(s->name), "%s", h.name);
+        snprintf(s->fw_ver, sizeof(s->fw_ver), "%s", h.fw_ver);
+    }
+    fclose(f);
+}
+
+static bool st_get(FILE *f, void *p, size_t n);
+
+// The picture of the selected slot, into the buffers the panel draws from. Quiet failure: the box says "No image".
+static void st_load_thumb(int i, int div) {
+    s_th_for = -1;
+    if (!s_th_buf || !s_st[i].used || s_st[i].bad || !s_st[i].thumb) return;
+    char path[64];
+    st_path(path, sizeof(path), i, false);
+    FILE *f = fopen(path, "rb");
+    if (!f) return;
+    bool ok = fseek(f, sizeof(StHdr), SEEK_SET) == 0 &&
+              st_get(f, th_shown(), (size_t)TH_PIX * 2);
+    fclose(f);
+    if (!ok) return;
+    if (div == 2) st_reduce(th_shown(), ST_THUMB_W, ST_THUMB_W / 2, ST_THUMB_H / 2, 2, th_small());
+    s_th_for = i;
+}
+
+static void st_free_bufs(void) {
+    heap_caps_free(s_th_buf);
+    s_th_buf = NULL;
+    s_th_for = -1;
+}
+
+static void st_alloc_bufs(void) {
+    if (!s_th_buf) {
+        s_th_buf = (uint16_t *)heap_caps_malloc((size_t)TH_PIX * 2 * 2 + (TH_PIX / 4) * 2, MALLOC_CAP_SPIRAM);
+    }
+}
+
+// "2026-11-10 12:34", "11-10 12:34", or "#12" when the clock was never set.
+static void st_when(const StSlot *s, bool full, char *out, size_t cap) {
+    if (st_clock_ok(s->time)) {
+        const time_t t = (time_t)s->time;
+        struct tm tmv;
+        localtime_r(&t, &tmv);
+        if (full) {
+            snprintf(out, cap, "%04d-%02d-%02d %02d:%02d", tmv.tm_year + 1900, tmv.tm_mon + 1, tmv.tm_mday, tmv.tm_hour, tmv.tm_min);
+        } else {
+            snprintf(out, cap, "%02d-%02d %02d:%02d", tmv.tm_mon + 1, tmv.tm_mday, tmv.tm_hour, tmv.tm_min);
+        }
+    } else {
+        snprintf(out, cap, "#%u", (unsigned)s->seq);
+    }
+}
+
+static void st_draw(int sel, int top) {
+    const int vis = st_vis(), div = st_div();
+    const int tw = ST_THUMB_W / div, th = ST_THUMB_H / div;
+    const int lx1 = UI_R - tw - 16;
+    const bool wide = (UI_R - UI_L) >= 560;       // room for the image name in the row
+
+    ui_header("State Save");
+    ui_section(UI_L, UI_R, ST_SEC_Y, "SLOTS", NULL);
+    UiRow rows[ST_SLOTS];
+    static char lbl[ST_SLOTS][12], val[ST_SLOTS][96];
+    for (int i = 0; i < vis; i++) {
+        const StSlot *s = &s_st[top + i];
+        char when[24];
+        snprintf(lbl[i], sizeof(lbl[i]), "Slot %d", top + i + 1);
+        if (!s->used) {
+            snprintf(val[i], sizeof(val[i]), "Empty");
+        } else if (s->bad) {
+            snprintf(val[i], sizeof(val[i]), "Unreadable");
+        } else {
+            st_when(s, wide, when, sizeof(when));
+            if (wide && s->name[0]) snprintf(val[i], sizeof(val[i]), "%s  %s", when, s->name);
+            else snprintf(val[i], sizeof(val[i]), "%s", when);
+        }
+        rows[i] = (UiRow){ lbl[i], val[i], UI_VALUE, 0, (uint8_t)!s->used };
+    }
+    s_ui_vcol = 12 + 7 * 8 + 16;          // after "Slot 10"
+    const int y1 = ui_group(UI_L, lx1, ST_Y0, rows, vis, sel - top, ST_SLOTS > vis ? 12 : 0);
+    s_ui_vcol = 0;
+    ui_scrollbar(lx1, ST_Y0, y1, top, vis, ST_SLOTS);
+
+    // The selected slot's picture, and under it the image it was saved with.
+    const int tx = UI_R - tw, ty = ST_Y0;
+    const StSlot *s = &s_st[sel];
+    lcd_ui_fill(tx, ty, tx + tw, ty + th, UI_GROUP, 5);
+    if (s_th_for == sel) {
+        lcd_ui_blit(tx, ty, tw, th, div == 2 ? th_small() : th_shown());
+    } else {
+        const char *m = !s->used ? "Empty" : "No image";
+        lcd_ui_text(tx + (tw - (int)strlen(m) * 8) / 2, ty + th / 2 - 8, m, UI_CAP);
+    }
+    if (s->used && !s->bad) {
+        const int cw = tw / 8;
+        int ly = ty + th + 6;
+        for (const char *p = s->name; *p && ly < ty + th + 6 + 36; ly += 18) {
+            char ln[24];
+            snprintf(ln, sizeof(ln), "%.*s", cw < 22 ? cw : 22, p);
+            lcd_ui_text(tx, ly, ln, UI_DIM);
+            p += strlen(ln);
+        }
+    }
+    if (s->used && (s->bad || s->other)) {
+        const int cw = tw / 8;
+        lcd_ui_text(tx, ty + th + 6 + 36 + 4, s->bad ? "Unreadable" : cw >= 14 ? "Other firmware" : "Other FW", UI_ACCENT);
+    }
+    static const UiKey keys[3] = { { UK_UPDOWN, NULL, ST_KEY_SEL }, { 0, "Enter", "Menu" }, { 0, "Esc", "Back" } };
+    ui_footer(keys, 3);
+}
+
+// A message in a box over the list. Shown at once (nothing waits for a key to flush it).
+static void st_box(const char *msg) {
+    const int w = (int)strlen(msg) * 8 + 32;
+    const int x0 = (UI_L + UI_R) / 2 - w / 2, y0 = ST_Y0 + 4 * UI_RH;
+    lcd_ui_fill(x0 - 2, y0 - 2, x0 + w + 2, y0 + UI_RH + 2, UI_ACCENT, 5);
+    const UiRow r = { msg, NULL, UI_VALUE, 0, 0 };
+    ui_group(x0, x0 + w, y0, &r, 1, -1, 0);
+    lcd_menu_flush();
+}
+
+static void st_notice(const char *msg) {
+    st_box(msg);
+    vTaskDelay(pdMS_TO_TICKS(1500));
+}
+
+// A small menu beside the selected row. Returns the row chosen, or -1 on ESC. Rows with `dim` cannot be chosen;
+// the cursor stays at `lo` or below.
+static int st_pick(int row_y, int lx1, const UiRow *rows, int n, int w, int start, int lo) {
+    int y0 = row_y;
+    const int bottom = ST_Y0 + st_vis() * UI_RH;
+    if (y0 + n * UI_RH > bottom) y0 = bottom - n * UI_RH;
+    if (y0 < ST_Y0) y0 = ST_Y0;
+    int x1 = lx1 - 8, x0 = x1 - w;
+    if (x0 < UI_L) {                     // a wide question on a small panel: over the picture rather than off the edge
+        x0 = UI_L;
+        x1 = x0 + w;
+    }
+    int sel = start;
+    for (;;) {
+        lcd_ui_fill(x0 - 2, y0 - 2, x1 + 2, y0 + n * UI_RH + 2, UI_ACCENT, 5);
+        ui_group(x0, x1, y0, rows, n, sel, 0);
+        const uint8_t nk = wait_key();
+        if (nk == NK_ESC) return -1;
+        if (key_is_up(nk) && sel > lo) sel--;
+        if (key_is_down(nk) && sel < n - 1) sel++;
+        if (nk == NK_RET && !rows[sel].dim) return sel;
+    }
+}
+
+static bool st_confirm(int row_y, int lx1, const char *question, const char *yes) {
+    const UiRow rows[3] = {
+        { question, NULL, UI_VALUE, 0, 1 }, { yes, NULL, UI_VALUE, 0, 0 }, { "Cancel", NULL, UI_VALUE, 0, 0 },
+    };
+    return st_pick(row_y, lx1, rows, 3, (int)strlen(question) * 8 + 24, 2, 1) == 1;
+}
+
+// In pieces smaller than the stream buffer: newlib hands a larger write straight to the card from where it lies,
+// and from PSRAM the S3's SPI card fails it (EIO); the TAB5 takes it, but a sector at a time.
+static bool st_put(FILE *f, const void *p, size_t n) {
+    const uint8_t *b = (const uint8_t *)p;
+    while (n) {
+        const size_t k = n < 4096 ? n : 4096;
+        if (fwrite(b, 1, k, f) != k) return false;
+        b += k;
+        n -= k;
+    }
+    return true;
+}
+static int st_wr(void *ctx, const void *p, size_t n) { return st_put((FILE *)ctx, p, n) ? 0 : -1; }
+static bool st_get(FILE *f, void *p, size_t n) {
+    uint8_t *b = (uint8_t *)p;
+    while (n) {
+        const size_t k = n < 4096 ? n : 4096;
+        if (fread(b, 1, k, f) != k) return false;
+        b += k;
+        n -= k;
+    }
+    return true;
+}
+static int st_rd(void *ctx, void *p, size_t n) { return st_get((FILE *)ctx, p, n) ? 0 : -1; }
+
+// Written to a temporary name and renamed over the slot, so a card that fills up or is pulled leaves the old slot
+// as it was and no half file behind.
+static bool st_save(int slot) {
+    mkdir("/sd/PC98", 0777);
+    mkdir(ST_DIR, 0777);
+    char path[64], tmp[64];
+    st_path(path, sizeof(path), slot, false);
+    st_path(tmp, sizeof(tmp), slot, true);
+
+    StHdr h;
+    memset(&h, 0, sizeof(h));
+    memcpy(h.magic, "98TS", 4);
+    h.ver = ST_VER;
+    snprintf(h.fw_ver, sizeof(h.fw_ver), "%s", esp_app_get_description()->version);
+    memcpy(h.elf_sha, esp_app_get_description()->app_elf_sha256, 32);
+    const time_t now = time(NULL);
+    h.time = st_clock_ok((int64_t)now) ? (int64_t)now : 0;
+    for (int i = 0; i < ST_SLOTS; i++) {
+        if (s_st[i].used && !s_st[i].bad && s_st[i].seq > h.seq) h.seq = s_st[i].seq;
+    }
+    h.seq++;
+    const char *img = g_settings.fdd_image[0][0] > ' ' ? (const char *)g_settings.fdd_image[0]
+                                                        : (const char *)g_settings.hdd_image[0];
+    const char *base = strrchr(img, '/');
+    snprintf(h.name, sizeof(h.name), "%s", base ? base + 1 : img);
+
+    // The screen as it was when the menu opened (the menu draws into its own canvas), at 1/4.
+    int fw = 0, fh = 0, stride = 0;
+    const uint16_t *fb = (const uint16_t *)lcd_last_frame(&fw, &fh, &stride);
+    if (s_th_buf && fb && fw / 4 == ST_THUMB_W && fh / 4 == ST_THUMB_H) {
+        st_reduce(fb, stride, ST_THUMB_W, ST_THUMB_H, 4, th_new());
+        h.thumb_w = ST_THUMB_W;
+        h.thumb_h = ST_THUMB_H;
+    }
+
+    FILE *f = fopen(tmp, "wb");
+    if (!f) return false;
+    char *iobuf = (char *)heap_caps_aligned_alloc(64, ST_IOBUF, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    if (iobuf) setvbuf(f, iobuf, _IOFBF, ST_IOBUF);
+    bool ok = fwrite(&h, 1, sizeof(h), f) == sizeof(h);
+    if (ok && h.thumb_w) ok = st_put(f, th_new(), (size_t)TH_PIX * 2);
+    if (ok) {
+        const Pc98StateOut out = { st_wr, f };
+        ok = pc98_state_save(&out) == 0;
+    }
+    if (fflush(f) != 0) ok = false;
+    if (fclose(f) != 0) ok = false;
+    heap_caps_free(iobuf);
+    if (ok) {
+        remove(path);                    // FatFs will not rename over a file
+        ok = rename(tmp, path) == 0;
+    }
+    if (!ok) remove(tmp);
+    return ok;
+}
+
+// 0 = loaded, 1 = could not be read as a slot, 3 = the loader refused it (it resets the machine). A slot from another
+// build is tried too once the user has agreed; the loader decides whether it can read it.
+static int st_load(int slot) {
+    char path[64];
+    st_path(path, sizeof(path), slot, false);
+    FILE *f = fopen(path, "rb");
+    if (!f) return 1;
+    StHdr h;
+    if (fread(&h, 1, sizeof(h), f) != sizeof(h) || memcmp(h.magic, "98TS", 4) != 0 || h.ver != ST_VER) {
+        fclose(f);
+        return 1;
+    }
+    if (h.thumb_w && fseek(f, (long)h.thumb_w * h.thumb_h * 2, SEEK_CUR) != 0) {
+        fclose(f);
+        return 1;
+    }
+    char *iobuf = (char *)heap_caps_aligned_alloc(64, ST_IOBUF, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    if (iobuf) setvbuf(f, iobuf, _IOFBF, ST_IOBUF);
+    const Pc98StateIn in = { st_rd, f };
+    const int rc = pc98_state_load(&in);
+    fclose(f);
+    heap_caps_free(iobuf);
+    if (rc != 0) return 3;
+    // The menu's own record of what is mounted follows the machine, which now has what the slot had in its drives
+    // (saved to NVS when the menu closes).
+    for (int i = 0; i < 4; i++) {
+        pcs_copy(g_settings.fdd_image[i], g_state_media.path[i], sizeof(g_settings.fdd_image[i]));
+    }
+    pcs_copy(g_settings.hdd_image[0], g_state_media.path[4], sizeof(g_settings.hdd_image[0]));
+    pcs_copy(g_settings.hdd_image[1], g_state_media.path[5], sizeof(g_settings.hdd_image[1]));
+    pcs_copy(g_settings.cd_image, g_state_media.path[6], sizeof(g_settings.cd_image));
+    return 0;
+}
+
+// The State Save screen. Returns true when a state was loaded: the menu then closes and the machine runs.
+static bool state_menu(void) {
+    lcd_menu_clear();
+    if (!g_sd_ok) {
+        ui_header("State Save");
+        ui_section(UI_L, UI_R, ST_SEC_Y, "No SD card.", NULL);
+        lcd_menu_flush();
+        vTaskDelay(pdMS_TO_TICKS(1200));
+        return false;
+    }
+    st_alloc_bufs();
+    for (int i = 0; i < ST_SLOTS; i++) st_scan_one(i);
+    bool loaded = false;
+    int sel = 0, top = 0, shown = -1;
+    for (;;) {
+        const int vis = st_vis();
+        if (sel < top) top = sel;
+        if (sel >= top + vis) top = sel - vis + 1;
+        if (shown != sel) {
+            st_load_thumb(sel, st_div());
+            shown = sel;
+        }
+        st_draw(sel, top);
+        const uint8_t nk = wait_key();
+        if (nk == NK_ESC) break;
+        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : ST_SLOTS - 1;
+        if (key_is_down(nk)) sel = (sel + 1 < ST_SLOTS) ? sel + 1 : 0;
+        if (nk != NK_RET) continue;
+
+        const StSlot *s = &s_st[sel];
+        const int lx1 = UI_R - ST_THUMB_W / st_div() - 16;
+        const int ry = ST_Y0 + (sel - top) * UI_RH;
+        char q[48];
+        const UiRow acts[4] = {
+            { "Save", NULL, UI_VALUE, 0, 0 }, { "Load", NULL, UI_VALUE, 0, (uint8_t)!s->used },
+            { "Delete", NULL, UI_VALUE, 0, (uint8_t)!s->used }, { "Cancel", NULL, UI_VALUE, 0, 0 },
+        };
+        const int act = st_pick(ry, lx1, acts, 4, 112, 0, 0);
+        if (act == 0) {
+            snprintf(q, sizeof(q), "Overwrite slot %d?", sel + 1);
+            if (s->used && !st_confirm(ry, lx1, q, "Overwrite")) continue;
+            st_draw(sel, top);
+            st_box("Saving...");
+            const bool ok = st_save(sel);
+            st_scan_one(sel);
+            shown = -1;
+            st_draw(sel, top);
+            st_notice(ok ? "Saved." : "Save failed.");
+        } else if (act == 1) {
+            if (s->bad) {
+                st_notice("Not a state file.");
+            } else if (s->other && (snprintf(q, sizeof(q), "Other firmware v%.10s. Load?", s->fw_ver),
+                                    !st_confirm(ry, lx1, q, "Load"))) {
+                continue;
+            } else {
+                st_draw(sel, top);
+                st_box("Loading...");
+                st_free_bufs();          // the loader may want the memory
+                const int rc = st_load(sel);
+                if (rc == 0) {
+                    loaded = true;
+                    break;
+                }
+                st_alloc_bufs();
+                shown = -1;
+                st_draw(sel, top);
+                st_notice(rc == 3 ? (s->other ? "This firmware cannot read it." : "Load failed. Machine reset.") : "Not a state file.");
+            }
+        } else if (act == 2) {
+            snprintf(q, sizeof(q), "Delete slot %d?", sel + 1);
+            if (!st_confirm(ry, lx1, q, "Delete")) continue;
+            char path[64];
+            st_path(path, sizeof(path), sel, false);
+            remove(path);
+            st_scan_one(sel);
+            shown = -1;
+        }
+    }
+    st_free_bufs();
+    return loaded;
+}
+
 extern volatile int g_menu_active, g_menu_req;
 extern "C" void menu_disk_run(void) {
     int sel = 0;
@@ -1001,28 +1480,28 @@ extern "C" void menu_disk_run(void) {
         if (!menu_key_pop(&nk, &dn)) { vTaskDelay(pdMS_TO_TICKS(20)); continue; }
         if (!dn) continue;
         if (nk == NK_ESC) break;
-        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 18;
-        if (key_is_down(nk)) sel = (sel < 18) ? sel + 1 : 0;
+        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 21;
+        if (key_is_down(nk)) sel = (sel < 21) ? sel + 1 : 0;
         // Left/right adjust the rows that hold a value rather than doing
         // something; everywhere else they are ignored.
         {
             const int dir = key_is_right(nk) ? 1 : (key_is_left(nk) ? -1 : 0);
             if (dir) {
-                if (sel == 10) {
+                if (sel == 11) {
                     g_backlight_pct = level_step(g_backlight_pct, dir, false);
                     tab5_backlight_set(g_backlight_pct);
-                } else if (sel == 11) {
-                    audio_set_volume(level_step(audio_get_volume(), dir, false, 0));
                 } else if (sel == 12) {
-                    const int m = g_line200 + dir;
-                    if (m >= 0 && m <= 2) {
-                        line200_apply(m);
-                        line200_refresh();
-                    }
-                } else if (sel == 14) {
-                    lcd_lamps_enable(dir > 0);
+                    audio_set_volume(level_step(audio_get_volume(), dir, false, 0));
                 } else if (sel == 13) {
-                    audio_set_fx(sound_step(audio_get_fx(),dir,false));
+                    line200_apply(wrap_step(g_line200, dir, 3));
+                    line200_refresh();
+                } else if (sel == 15) {
+                    lcd_lamps_enable(dir > 0);
+                } else if (sel == 16) {
+                    lcd_set_osk(osk_step(dir));
+                    lcd_menu_clear();
+                } else if (sel == 14) {
+                    audio_set_fx(sound_step(audio_get_fx(),dir,true));
                 } else if (sel == 5) {
                     const UINT mult = clock_step(g_settings.clock_mul, dir, false);
                     g_settings.clock_mul = mult;       // display follows immediately
@@ -1030,7 +1509,9 @@ extern "C" void menu_disk_run(void) {
                 } else if (sel == 6) {
                     g_settings.base_clock = dir > 0 ? CLK_BASE5 : CLK_BASE8;
                 } else if (sel == 7) {
-                    g_cpu_mode = cpu_step(g_cpu_mode, dir, false);
+                    g_cpu_mode = cpu_step(g_cpu_mode, dir, true);
+                } else if (sel == 10) {
+                    touch_mouse_set_speed(wrap_step(touch_mouse_speed(), dir, 3));
                 }
             }
         }
@@ -1052,24 +1533,32 @@ extern "C" void menu_disk_run(void) {
             } else if (sel == 9) {              // FONT ROM: pick a file from the SD
                 browse_rom(1);
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 10) {              // Backlight: next, wrapping
+            } else if (sel == 10) {             // Touch mouse speed: low, medium, high
+                touch_mouse_set_speed(wrap_step(touch_mouse_speed(), 1, 3));
+            } else if (sel == 11) {              // Backlight: next, wrapping
                 g_backlight_pct = level_step(g_backlight_pct, 1, true);
                 tab5_backlight_set(g_backlight_pct);
-            } else if (sel == 11) {              // Volume: next, wrapping
+            } else if (sel == 12) {              // Volume: next, wrapping
                 audio_set_volume(level_step(audio_get_volume(), 1, true, 0));
-            } else if (sel == 12) {              // 200-line graphics: next, wrapping
+            } else if (sel == 13) {              // 200-line graphics: next, wrapping
                 line200_apply((g_line200 + 1) % 3);
                 line200_refresh();
-            } else if (sel == 13) {              // Sound: next, wrapping
+            } else if (sel == 14) {              // Sound: next, wrapping
                 audio_set_fx(sound_step(audio_get_fx(),1,true));
-            } else if (sel == 14) {              // Drive lamps: on/off
+            } else if (sel == 15) {              // Drive lamps: on/off
                 lcd_lamps_enable(!lcd_lamps_enabled());
-            } else if (sel == 15) {              // Screenshot
+            } else if (sel == 16) {              // Screen keyboard: off, landscape, landscape-game, portrait
+                lcd_set_osk(osk_step(1));
+                lcd_menu_clear();
+            } else if (sel == 17) {              // Screenshot
                 if (!screenshot_save(s_last_shot, sizeof(s_last_shot))) {
                     snprintf(s_last_shot, sizeof(s_last_shot), "FAILED");
                 }
-            } else if (sel == 16 || sel == 17) {   // USB Mode: arm the flag, reboot
-                const int m = (sel == 16) ? USB_MODE_SD : USB_MODE_IMAGE;
+            } else if (sel == 18) {              // State Save: the slot screen; a load closes the menu
+                if (state_menu()) break;
+                lcd_menu_clear();   // the submenu owned the screen
+            } else if (sel == 19 || sel == 20) {   // USB Mode: arm the flag, reboot
+                const int m = (sel == 19) ? USB_MODE_SD : USB_MODE_IMAGE;
                 if (m == USB_MODE_IMAGE && choose_image_drive() < 0) {
                     lcd_menu_clear();   // back to the menu
                     draw_drives(sel);
@@ -1096,7 +1585,7 @@ extern "C" void menu_disk_run(void) {
                 sd_unmount();
                 panel_tab5_blank_early();
                 esp_restart();
-            } else if (sel == 18) {             // RESET: persist the settings, reboot
+            } else if (sel == 21) {             // RESET: persist the settings, reboot
                 save_settings();
                 sd_unmount();                   // same reason as USB Mode above
                 panel_tab5_blank_early();

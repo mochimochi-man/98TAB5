@@ -701,6 +701,8 @@ static void dma_tc(void)
 	F.tc = 1;
 }
 
+static const DmaDevice s_dma_dev = { from_host, to_host, dma_tc };
+
 /* ---- commands ---- */
 
 static UINT param_bytes(UINT8 c)
@@ -1089,7 +1091,6 @@ void fdc_drive_changed(int drive, int ready)
 
 void fdc_reset(const Pc98Settings *cfg)
 {
-	static const DmaDevice dev = { from_host, to_host, dma_tc };
 	const UINT64 clk = F.clk64;
 
 	memset(&F, 0, sizeof(F));
@@ -1104,8 +1105,8 @@ void fdc_reset(const Pc98Settings *cfg)
 	ev_cancel(EV_FDCBYTE);
 	F.byte_ready = 0;
 	ev_cancel(EV_FDCINT);
-	dma_connect(2, &dev);
-	dma_connect(3, &dev);
+	dma_connect(2, &s_dma_dev);
+	dma_connect(3, &s_dma_dev);
 }
 
 void fdc_bind(void)
@@ -1119,4 +1120,29 @@ void fdc_bind(void)
 	io_any(0xc8, 0xf9, out, in, 4);
 	io_sys(0xbe, 0xcff, be_out, be_in, 1);
 	if (F.has144) io_port(0x4be, rpm_w, rpm_r);
+}
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void fdc_state(SsCtx *c)
+{
+	void *orig;
+
+	if (!ss_loading(c)) ss_fn_encode(c, &F.stage, &orig);
+	SS_VAR(c, "FDC ", F);
+	if (ss_loading(c)) ss_fn_decode(c, &F.stage);
+	else ss_fn_put_back(&F.stage, &orig);
+	SS_VAR(c, "FDCw", fdc_waiting);
+	SS_VAR(c, "FDCd", s_diag);
+	SS_VAR(c, "FDCg", s_diag_got);
+}
+void fdc_fns(const void **t)
+{
+	t[SF_FDC_END_EVENT] = (const void *)end_event;
+	t[SF_FDC_BYTE_EVENT] = (const void *)byte_event;
+	t[SF_FDC_SEEK_EVENT] = (const void *)seek_event;
+	t[SF_FDC_RW_SECTOR] = (const void *)rw_sector;
+	t[SF_FDC_DIAG_SECTOR] = (const void *)diag_sector;
+	t[SF_FDC_COMMAND_READY] = (const void *)command_ready;
+	t[SF_DMA_FDC] = &s_dma_dev;
 }

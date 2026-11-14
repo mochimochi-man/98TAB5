@@ -76,3 +76,12 @@ void artic_bind(void)
 	io_port16(0x5d, NULL, artic_r16);
 	io_port16(0x5e, NULL, artic_r16);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void artic_state(SsCtx *c)
+{
+	SS_VAR(c, "ARTc", s_ref_clock);
+	SS_VAR(c, "ARTn", s_ref_count);
+	SS_VAR(c, "ARTf", s_frac);
+}

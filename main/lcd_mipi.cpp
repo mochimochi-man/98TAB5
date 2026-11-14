@@ -45,6 +45,7 @@ extern UINT8 mem[];     // the machine's memory (bus.c)
 }
 
 #include "board_pins.h"
+#include "osk.h"
 
 extern "C" int ets_printf(const char *fmt, ...);
 
@@ -97,6 +98,15 @@ static int16_t s_map_y[PAN_W];  // panel_x -> PC-98 y
 static int16_t s_map_x[PAN_H];  // panel_y -> PC-98 x
 
 static int s_scale_mode = BRD_SCALE_DEFAULT;
+
+// Portrait with the on-screen keyboard (osk.cpp): the picture across the top at 9/8, upright on the panel's own
+// axes, and the keyboard under it. The two tables map panel x -> PC-98 x and panel y -> PC-98 y there.
+static int s_osk = OSK_OFF;      // OSK_PORTRAIT or OSK_LANDSCAPE with the keyboard on
+#define OSK_P (s_osk == OSK_PORTRAIT)
+#define OSK_L (s_osk == OSK_LANDSCAPE || s_osk == OSK_GAME)
+#define OSK_G (s_osk == OSK_GAME)
+static int16_t s_pmap_x[PAN_W];
+static int16_t s_pmap_y[PAN_H];
 static bool s_force_full = true;
 
 // Per-tile hash of what was last written, so an unchanged tile costs no PSRAM
@@ -114,13 +124,31 @@ static volatile int s_pend = 0;   // atomic only   // blit-task jobs posted and 
 // ---- scale mapping --------------------------------------------------------
 static void build_maps(void) {
     for (int i = 0; i < PAN_W; i++) {
+        const int px = i * 8 / 9;
+        s_pmap_x[i] = (int16_t)(px < PC98_W ? px : -1);
+    }
+    for (int i = 0; i < PAN_H; i++) {
+        const int py = (i - OSK_PIC_Y) * 8 / 9;
+        s_pmap_y[i] = (int16_t)(i >= OSK_PIC_Y && i < OSK_PIC_Y + OSK_PIC_H && py < PC98_H ? py : -1);
+    }
+    for (int i = 0; i < PAN_W; i++) {
         s_map_y[i] = -1;
     }
     for (int i = 0; i < PAN_H; i++) {
         s_map_x[i] = -1;
     }
 
-    if (s_scale_mode == BRD_SCALE_DOT) {
+    if (OSK_L) {
+        // Landscape with the keyboard: 19/16, above the keyboard and centred across.
+        for (int i = 0; i < OSKL_PIC_H; i++) {
+            const int py = i * OSKL_DEN / OSKL_NUM;
+            s_map_y[OSKL_PIC_Y + i] = (int16_t)(FLIP_V ? (PC98_H - 1 - py) : py);
+        }
+        for (int i = 0; i < OSKL_PIC_W; i++) {
+            const int px = i * OSKL_DEN / OSKL_NUM;
+            s_map_x[OSKL_PIC_X + i] = (int16_t)(FLIP_H ? (PC98_W - 1 - px) : px);
+        }
+    } else if (s_scale_mode == BRD_SCALE_DOT) {
         // 1:1, centred on both axes.
         const int xoff = (PAN_W - PC98_H) / 2;  // (720-400)/2 = 160
         const int yoff = (PAN_H - PC98_W) / 2;  // (1280-640)/2 = 320
@@ -198,8 +226,8 @@ static void do_blit(const uint8_t *fb) {
     if (!s_ppa) {
         return;
     }
-    const int num = (s_scale_mode == BRD_SCALE_DOT) ? 1 : BRD_FIT_NUM;
-    const int den = (s_scale_mode == BRD_SCALE_DOT) ? 1 : BRD_FIT_DEN;
+    const int num = OSK_P ? 9 : OSK_L ? OSKL_NUM : (s_scale_mode == BRD_SCALE_DOT) ? 1 : BRD_FIT_NUM;
+    const int den = OSK_P ? 8 : OSK_L ? OSKL_DEN : (s_scale_mode == BRD_SCALE_DOT) ? 1 : BRD_FIT_DEN;
     const int outw = PC98_H * num / den;   // along the panel's short axis
     const int outh = PC98_W * num / den;   // along the panel's long axis
 
@@ -217,11 +245,11 @@ static void do_blit(const uint8_t *fb) {
     op.out.buffer_size = (size_t)PAN_W * PAN_H * sizeof(uint16_t);
     op.out.pic_w = PAN_W;
     op.out.pic_h = PAN_H;
-    op.out.block_offset_x = (PAN_W - outw) / 2;
-    op.out.block_offset_y = (PAN_H - outh) / 2;
+    op.out.block_offset_x = OSK_P ? 0 : OSK_L ? OSKL_PIC_Y : (PAN_W - outw) / 2;
+    op.out.block_offset_y = OSK_P ? OSK_PIC_Y : (PAN_H - outh) / 2;
     op.out.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
 
-    op.rotation_angle = PPA_ROTATION;
+    op.rotation_angle = OSK_P ? PPA_SRM_ROTATION_ANGLE_0 : PPA_ROTATION;
     op.scale_x = (float)num / (float)den;
     op.scale_y = (float)num / (float)den;
     op.mode = PPA_TRANS_MODE_BLOCKING;
@@ -236,6 +264,9 @@ static void clear_borders(void) {
     if (s_fb) {
         memset(s_fb, 0, (size_t)PAN_W * PAN_H * sizeof(uint16_t));
         fb_sync_all();
+        if (s_osk) {
+            osk_paint(s_fb, s_osk);
+        }
         s_lamp_force = true;
     }
 }
@@ -359,10 +390,27 @@ extern "C" void lcd_set_scale_mode(int m) {
     }
     s_scale_mode = m;
     build_maps();
-    if (s_fb) {
-        memset(s_fb, 0, (size_t)PAN_W * PAN_H * sizeof(uint16_t));
-        fb_sync_all();
+    if (!s_osk) {
+        clear_borders();
     }
+}
+
+// The on-screen keyboard: OSK_OFF (the picture alone), OSK_PORTRAIT or OSK_LANDSCAPE.
+extern "C" void lcd_set_osk(int mode) {
+    if (mode == s_osk) {
+        return;
+    }
+    s_osk = mode;
+    build_maps();
+    clear_borders();
+}
+
+extern "C" int lcd_osk_mode(void) {
+    return s_osk;
+}
+
+extern "C" bool lcd_osk_enabled(void) {
+    return s_osk != OSK_OFF;
 }
 
 // ---- init -----------------------------------------------------------------
@@ -484,19 +532,69 @@ extern "C" void lcd_lamps_tick(void) {
     if (on == s_lamp_drawn && !s_lamp_force) {
         return;
     }
-    const int num = (s_scale_mode == BRD_SCALE_DOT) ? 1 : BRD_FIT_NUM;
-    const int den = (s_scale_mode == BRD_SCALE_DOT) ? 1 : BRD_FIT_DEN;
+    static const uint16_t lit[LAMPS] = {0xF800, 0xF800, 0xFFE0, 0x07E0};   // red, red, yellow, green
+    static const uint16_t dark[LAMPS] = {0x3000, 0x3000, 0x3180, 0x0180};
+    if (OSK_P) {
+        // Portrait: under the picture's right end, on the panel's own axes.
+        const int span = LAMPS * LAMP_W + (LAMPS - 1) * LAMP_GAP;
+        const int x0 = PAN_W - 8 - span, y0 = OSK_PIC_Y + OSK_PIC_H + 5;
+        for (int i = 0; i < LAMPS; i++) {
+            const uint16_t c = (on < 0) ? 0x0000 : (on & (1 << i)) ? lit[i] : dark[i];
+            for (int y = y0; y < y0 + LAMP_H; y++) {
+                uint16_t *row = s_fb + (size_t)y * PAN_W + x0 + i * (LAMP_W + LAMP_GAP);
+                for (int x = 0; x < LAMP_W; x++) {
+                    row[x] = c;
+                }
+            }
+        }
+        esp_cache_msync(s_fb + (size_t)y0 * PAN_W, (size_t)LAMP_H * PAN_W * sizeof(uint16_t),
+                        ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
+        s_lamp_drawn = on;
+        s_lamp_force = false;
+        return;
+    }
+    const int num = (s_scale_mode != BRD_SCALE_DOT) ? BRD_FIT_NUM : 1;
+    const int den = (s_scale_mode != BRD_SCALE_DOT) ? BRD_FIT_DEN : 1;
     const int pic_w = PC98_W * num / den;               // along the screen's width
     const int pic_h = PC98_H * num / den;
     const int right = (PAN_H + pic_w) / 2;              // just past the picture
     const int below = (PAN_W + pic_h) / 2;
-    const int lx0 = right - (LAMPS * LAMP_W + (LAMPS - 1) * LAMP_GAP);
-    int ly0 = below + 2;
+    // Landscape (either keyboard): side by side in the gap under INS / DEL, as wide as fits, centred both ways.
+    int sx0, sy0, sx1, sy1;
+    if (OSK_L && osk_lamp_slot(&sx0, &sy0, &sx1, &sy1)) {
+        int lw = LAMP_W;
+        while (lw > 8 && LAMPS * lw + (LAMPS - 1) * LAMP_GAP > sx1 - sx0 - 8) lw--;
+        const int span = LAMPS * lw + (LAMPS - 1) * LAMP_GAP;
+        const int gx = sx0 + (sx1 - sx0 - span) / 2, gy = sy0 + (sy1 - sy0 - LAMP_H) / 2;
+        for (int i = 0; i < LAMPS; i++) {
+            const uint16_t c = (on < 0) ? 0x0000 : (on & (1 << i)) ? lit[i] : dark[i];
+            lamp_rect(gx + i * (lw + LAMP_GAP), gy, lw, LAMP_H, c);
+        }
+        esp_cache_msync(s_fb + (size_t)(PAN_H - gx - span) * PAN_W, (size_t)span * PAN_W * sizeof(uint16_t),
+                        ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
+        s_lamp_drawn = on;
+        s_lamp_force = false;
+        return;
+    }
+    // Landscape: stacked down the right of the picture, the first level with its top edge.
+    if (OSK_L) {
+        const int gx = OSKL_PIC_X + OSKL_PIC_W + 8, gy = OSKL_PIC_Y;
+        for (int i = 0; i < LAMPS; i++) {
+            const uint16_t c = (on < 0) ? 0x0000 : (on & (1 << i)) ? lit[i] : dark[i];
+            lamp_rect(gx, gy + i * (LAMP_H + LAMP_GAP), LAMP_W, LAMP_H, c);
+        }
+        esp_cache_msync(s_fb + (size_t)(PAN_H - gx - LAMP_W) * PAN_W, (size_t)LAMP_W * PAN_W * sizeof(uint16_t),
+                        ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
+        s_lamp_drawn = on;
+        s_lamp_force = false;
+        return;
+    }
+    const int lx0 = OSK_L ? PAN_H - 8 - (LAMPS * LAMP_W + (LAMPS - 1) * LAMP_GAP)
+                          : right - (LAMPS * LAMP_W + (LAMPS - 1) * LAMP_GAP);
+    int ly0 = OSK_L ? OSKL_TOP - LAMP_H - 4 : below + 2;
     if (ly0 + LAMP_H > PAN_W) {
         ly0 = PAN_W - LAMP_H;
     }
-    static const uint16_t lit[LAMPS] = {0xF800, 0xF800, 0xFFE0, 0x07E0};   // red, red, yellow, green
-    static const uint16_t dark[LAMPS] = {0x3000, 0x3000, 0x3180, 0x0180};
     for (int i = 0; i < LAMPS; i++) {
         const uint16_t c = (on < 0) ? 0x0000 : (on & (1 << i)) ? lit[i] : dark[i];
         lamp_rect(lx0 + i * (LAMP_W + LAMP_GAP), ly0, LAMP_W, LAMP_H, c);
@@ -649,6 +747,22 @@ extern "C" void lcd_ui_dot(int x, int y, uint16_t c) {
     s_menu_dirty = true;
 }
 
+// Copy a w x h RGB565 picture (rows packed, stride w) onto the canvas at (x, y).
+extern "C" void lcd_ui_blit(int x, int y, int w, int h, const uint16_t *src) {
+    uint16_t *u = ui_canvas();
+    if (!u || !src) return;
+    for (int j = 0; j < h; j++) {
+        const int yy = y + j;
+        if (yy < 0 || yy >= PC98_H) continue;
+        for (int i = 0; i < w; i++) {
+            const int xx = x + i;
+            if (xx < 0 || xx >= PC98_W) continue;
+            u[yy * PC98_W + xx] = src[j * w + i];
+        }
+    }
+    s_menu_dirty = true;
+}
+
 extern "C" void lcd_menu_clear(void) {
     lcd_ui_fill(0, 0, PC98_W, PC98_H, s_menu_bg, 0);
     s_lamp_force = true;             // the panel is painted over: put the lamps back after
@@ -662,8 +776,8 @@ extern "C" bool lcd_panel_to_pc98(int panel_x, int panel_y, int *out_x, int *out
     if (panel_x < 0 || panel_x >= PAN_W || panel_y < 0 || panel_y >= PAN_H) {
         return false;
     }
-    const int px = s_map_x[panel_y];
-    const int py = s_map_y[panel_x];
+    const int px = OSK_P ? s_pmap_x[panel_x] : s_map_x[panel_y];
+    const int py = OSK_P ? s_pmap_y[panel_y] : s_map_y[panel_x];
     if (px < 0 || py < 0) {
         return false;  // letterbox
     }
@@ -679,16 +793,35 @@ extern "C" bool lcd_panel_to_pc98(int panel_x, int panel_y, int *out_x, int *out
 // Copy the canvas onto the panel (the letterbox in the page colour) and write it back for the scanout.
 extern "C" void lcd_menu_flush(void) {
     if (!s_menu_dirty || !s_fb || !s_ui) return;
-    const int64_t t0 = esp_timer_get_time();
-    for (int panel_y = 0; panel_y < PAN_H; panel_y++) {
+    if (OSK_P) {
+        // Portrait: the picture's area only; the keyboard under it stays.
+        for (int panel_y = OSK_PIC_Y; panel_y < OSK_PIC_Y + OSK_PIC_H; panel_y++) {
+            const int py = s_pmap_y[panel_y];
+            uint16_t *drow = s_fb + (size_t)panel_y * PAN_W;
+            const uint16_t *src = s_ui + (size_t)(py < 0 ? 0 : py) * PC98_W;
+            for (int panel_x = 0; panel_x < PAN_W; panel_x++) {
+                const int px = s_pmap_x[panel_x];
+                drow[panel_x] = (py < 0 || px < 0) ? s_menu_bg : src[px];
+            }
+        }
+        esp_cache_msync(s_fb + (size_t)OSK_PIC_Y * PAN_W, (size_t)OSK_PIC_H * PAN_W * sizeof(uint16_t),
+                        ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
+        s_menu_dirty = false;
+        s_force_full = true;
+        return;
+    }
+    // Landscape with the keyboard: the panel columns of the picture's rows only; the keyboard under it stays.
+    const int cx0 = OSK_L ? OSKL_PIC_Y : 0, cx1 = OSK_L ? OSKL_PIC_Y + OSKL_PIC_H : PAN_W;
+    const int cy0 = OSK_L ? PAN_H - OSKL_PIC_X - OSKL_PIC_W : 0, cy1 = OSK_L ? PAN_H - OSKL_PIC_X : PAN_H;
+    for (int panel_y = cy0; panel_y < cy1; panel_y++) {
         const int px = s_map_x[panel_y];
         uint16_t *drow = s_fb + (size_t)panel_y * PAN_W;
         if (px < 0) {
-            for (int panel_x = 0; panel_x < PAN_W; panel_x++) drow[panel_x] = s_menu_bg;
+            for (int panel_x = cx0; panel_x < cx1; panel_x++) drow[panel_x] = s_menu_bg;
             continue;
         }
         const uint16_t *col = s_ui + px;
-        for (int panel_x = 0; panel_x < PAN_W; panel_x++) {
+        for (int panel_x = cx0; panel_x < cx1; panel_x++) {
             const int py = s_map_y[panel_x];
             drow[panel_x] = py < 0 ? s_menu_bg : col[py * PC98_W];
         }

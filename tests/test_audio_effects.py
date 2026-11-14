@@ -40,6 +40,8 @@ int main() {
 
  // Orchestra keeps the direct lead band while removing the inherited bass
  // boost; this is a fixed filter choice, not an audio-dependent compressor.
+ // Each mode has its own room (Orchestra a longer hall), so the overall levels
+ // differ: what the filter shows in is the bass against the lead.
  double energy[2][2]={{0}};
  for(int mode=3;mode<=4;mode++)for(int band=0;band<2;band++) {
   fx_reset();double hz=band?880:110;
@@ -51,13 +53,13 @@ int main() {
   }
  }
  double bass=sqrt(energy[1][0]/energy[0][0]),lead=sqrt(energy[1][1]/energy[0][1]);
- fprintf(stderr,"Orchestra EQ vs Synthesizer: bass %.3f, lead %.3f\n",bass,lead);
- assert(bass>.5 && bass<.8 && lead>.9 && lead<1.1);
+ fprintf(stderr,"Orchestra EQ vs Synthesizer: bass %.3f, lead %.3f, bass against lead %.3f\n",bass,lead,bass/lead);
+ assert(bass/lead>.5 && bass/lead<.85 && lead>.9);
  puts("PASS: mode validation, beep bypass, full-scale processing, stable decaying DSP tails");
 }
 '''
 # Free delay storage after the checks so leak checking also stays meaningful.
-code=code.replace(' puts("PASS:', ''' for(int ch=0;ch<2;ch++){for(int k=0;k<FX_COMBS;k++)free(s_comb[ch][k].buf);for(int k=0;k<FX_ALLPS;k++)free(s_allp[ch][k].buf);}free(s_wide);
+code=code.replace(' puts("PASS:', ''' for(int ch=0;ch<2;ch++){for(int k=0;k<FX_COMBS;k++)free(s_comb[ch][k].buf);for(int k=0;k<FX_ALLPS;k++)free(s_allp[ch][k].buf);for(int k=0;k<HALL_COMBS;k++)free(s_hcomb[ch][k].buf);for(int k=0;k<HALL_ALLPS;k++)free(s_hallp[ch][k].buf);}free(s_hpre.buf);free(s_wide);
  puts("PASS:''')
 with tempfile.TemporaryDirectory(prefix='pc98-dsp-') as tmp:
  p=Path(tmp);(p/'test.cpp').write_text(code)

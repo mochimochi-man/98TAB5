@@ -505,3 +505,18 @@ void gdc_bind(void)
 	io_sys(0x60, 0xcf1, t_out, t_in, 8);
 	io_sys(0xa0, 0xcf1, g_out, g_in, 8);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void gdc_state(SsCtx *c)
+{
+	SS_VAR(c, "GDCt", g_tgdc);
+	SS_VAR(c, "GDCg", g_ggdc);
+	SS_VAR(c, "GDCv", g_vid);
+	SS_VAR(c, "GDC0", s_frame_t0);
+}
+void gdc_fns(const void **t)
+{
+	t[SF_GDC_RETRACE_START] = (const void *)retrace_start;
+	t[SF_GDC_RETRACE_END] = (const void *)retrace_end;
+}

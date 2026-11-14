@@ -319,3 +319,26 @@ void snd_release(const SINT32 *block)
 	m.filled = left;
 	m.busy = 0;
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void snd_state(SsCtx *c)
+{
+	/* the render position as a distance from now; what was rendered and not taken yet is dropped at a load */
+	UINT32 lead = m.pos - now(), frac = m.frac;
+
+	ss_blk(c, "SNDl", &lead, sizeof(lead));
+	ss_blk(c, "SNDf", &frac, sizeof(frac));
+	if (ss_loading(c)) {
+		m.pos = now() + lead;
+		m.frac = frac;
+	}
+}
+
+void snd_state_loaded(void)
+{
+	m.filled = 0;
+	m.busy = 0;
+	s_pub = now();
+	s_qr = s_qw;
+}

@@ -261,6 +261,22 @@ entry_0008:
 entry_main:
         cli
         cld
+        ; A program that left protected mode by resetting the CPU cleared SHUT0
+        ; (system port C bit 7) first and put its SS:SP at 0000:0404h, with the
+        ; place to go on next on that stack: set SHUT0/SHUT1 back and go there.
+        in      al, 0x35
+        test    al, 0x80
+        jnz     .cold
+        mov     al, 0x0f                ; SHUT0 = 1
+        out     0x37, al
+        mov     al, 0x0b                ; SHUT1 = 1
+        out     0x37, al
+        xor     ax, ax
+        mov     ds, ax
+        mov     ss, [0x0406]
+        mov     sp, [0x0404]
+        retf
+.cold:
         xor     ax, ax
         mov     ss, ax
         mov     sp, STACK_TOP

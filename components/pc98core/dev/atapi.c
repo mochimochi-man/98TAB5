@@ -9,6 +9,11 @@
 #include "atapi.h"
 #include "../media/cdimg.h"
 #include "../include/host.h"
+#ifdef ESP_PLATFORM
+#include "esp_attr.h"
+#else
+#define EXT_RAM_BSS_ATTR
+#endif
 
 /* status */
 #define ST_BSY	0x80
@@ -32,7 +37,8 @@
 
 enum { PH_NONE = 0, PH_PACKET, PH_IN };
 
-static struct {
+/* In PSRAM: the S3 has little internal RAM to spare. */
+static EXT_RAM_BSS_ATTR struct {
 	int		fitted;
 	cd_image_t	*cd;
 	char		path[256];
@@ -563,4 +569,14 @@ uint8_t atapi_in(uint32_t port)
 	case 0x74e: return (uint8_t)(0xc0 | ((~a.dh & 0x0f) << 2) | 0x02);
 	}
 	return 0xff;
+}
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void atapi_state(SsCtx *c)
+{
+	/* the open disc (heap) stays as it is */
+	const size_t keep[1] = { offsetof(__typeof__(a), cd) };
+
+	ss_blk_keep(c, "ATPI", &a, sizeof(a), keep, 1);
 }

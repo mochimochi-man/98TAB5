@@ -296,3 +296,14 @@ void gdcfig_wdat(UINT16 data)
 	g_ggdc.figs[1] = 0;
 	g_ggdc.figs[2] = 0;
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void gdcfig_state(SsCtx *c)
+{
+	SS_VAR(c, "GFIG", s_mode);
+}
+void gdcfig_fns(const void **t)
+{
+	t[SF_GDCFIG_DRAW_DONE] = (const void *)draw_done;
+}

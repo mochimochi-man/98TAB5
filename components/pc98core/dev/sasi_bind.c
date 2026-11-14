@@ -160,3 +160,9 @@ void ide_bind(void)
 		io_port(ports[k], NULL, iide);
 	}
 }
+
+/* ---- state save / load (state.c) ---- */
+const char *sasi_unit_path(int unit)
+{
+	return (unit >= 0 && unit < SASI_UNITS && (sasi_disk(unit) || ide_disk(unit))) ? s_path[unit] : "";
+}

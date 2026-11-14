@@ -77,6 +77,11 @@ static void kq_push(uint8_t nkey, uint8_t down) {
     xQueueSend(s_kq, &ev, 0);
 }
 
+// A key from the on-screen keyboard (osk.cpp), already a PC-98 code.
+extern "C" void hid_key_event(uint8_t nkey, uint8_t down) {
+    kq_push(nkey, down);
+}
+
 
 // Pop one key event for the emulator loop. Returns 1 if an event was returned.
 extern "C" int usb_kbd_pop(uint8_t *nkey, uint8_t *down) {

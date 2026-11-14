@@ -83,6 +83,11 @@ static void env_step(SsgChip *s)
 	s->env_lvl = (UINT8)env_level(shape, n);
 }
 
+static SINT32 magnitude(SINT32 x)
+{
+	return x < 0 ? -x : x;
+}
+
 static SINT32 share(UINT32 ticks)
 {
 	return (SINT32)(((UINT64)ticks * s_recip) >> 24);	/* ticks / s_samp in Q16 */
@@ -214,12 +219,11 @@ void ssg_render(void *ctx, SINT32 *lr, UINT frames)
 	SsgChip *s = (SsgChip *)ctx;
 	UINT32 seg_len[12];
 	UINT8 seg_hi[12];
-
-	/* All three at the fixed level 0 and the high-pass at rest: the output stays zero.  The tone and noise counters
-	 * and the envelope still run, to the same state as below: the counters for the whole block by arithmetic, the
-	 * envelope frame by frame while it runs. */
 	const int orch = orchestra_enabled() == 2;
 
+	/* All three at the fixed level 0, the high-pass at rest and no Orchestra voice still sounding: the output stays
+	 * zero.  The tone and noise counters and the envelope still run, to the same state as below: the counters for the
+	 * whole block by arithmetic, the envelope frame by frame while it runs. */
 	if (!s->orch_active && !s->x1 && !s->y1 && !((s->reg[8] | s->reg[9] | s->reg[10]) & 0x1f) && s->thalf[0] && s->thalf[1] &&
 	    s->thalf[2] && s->nhalf) {
 		const UINT64 total = (UINT64)frames * s_samp;
@@ -286,35 +290,38 @@ void ssg_render(void *ctx, SINT32 *lr, UINT frames)
 				hi = tone_on ? t : noise_on ? noise_hi : s_samp;
 			}
 			const SINT32 out = amp ? (SINT32)(((SINT64)share(hi) * amp + (1 << 23)) >> 24) : 0;
-			/* Orchestra: a pure tone becomes bowed strings at its pitch and level.  The generators above ran
-			 * exactly as before; only this channel's square wave leaves the mix. */
-			/* Hardware-envelope channels are plucks and buzzers, not lines: those stay square. */
+			/* Orchestra: a pure tone becomes bowed strings at its pitch and level.  The generators above ran exactly
+			 * as before; only this channel's square wave leaves the mix.  Hardware-envelope channels are plucks and
+			 * buzzers, not lines: those stay square. */
 			const int replace = orch && tone_on && !noise_on && !(v & 0x10);
 			if (replace || s->orch[c].envelope) {
 				OrchestraSampleVoice *vo = &s->orch[c];
-				const UINT tp = ((s->reg[2 * c] | (s->reg[2 * c + 1] << 8)) & 0xfff) ? ((s->reg[2 * c] | (s->reg[2 * c + 1] << 8)) & 0xfff) : 1;
-				const SINT32 level = replace ? (amp >> 8) : 0;
+				OrchestraMatch *m = &s->orch_match[c];
+				const UINT period = (s->reg[2 * c] | (s->reg[2 * c + 1] << 8)) & 0xfff;
+				const UINT tp = period ? period : 1;
 				const UINT old_tp = s->orch_tp[c];
+				const SINT32 level = replace ? (amp >> 8) : 0;
+				const SINT32 square = replace && amp ? out - (amp >> 9) : 0;	/* the native square's AC part */
 				/* a new note: sound after silence, or a pitch step beyond vibrato (about 3%) */
 				const int note = level && (!vo->was_key || !old_tp || tp * 100u > old_tp * 103u || tp * 103u < old_tp * 100u);
 				SINT32 vl = 0, vr = 0;
+
 				if (level) s->orch_tp[c] = (UINT16)tp;
 				if (note) s->orch_age[c] = 0;
 				orchestra_ssg_voice(vo, 2359296u / tp, level, note, &vl, &vr);	/* f = 124800 / TP Hz, as an FM increment */
 				if (vo->envelope) active = 1;
-				OrchestraMatch *m = &s->orch_match[c];
-				const SINT32 g = m->gain ? m->gain : 1024;
+				const SINT32 vpeak = magnitude(vl) > magnitude(vr) ? magnitude(vl) : magnitude(vr);
+				const SINT32 g = (SINT32)orchestra_gain_now(&m->gain, vpeak);
 				ol += (SINT32)((SINT64)vl * g / 1024);
 				orr += (SINT32)((SINT64)vr * g / 1024);
-				/* the native square's AC part against the strings, before gain */
-				orchestra_match_feed(m, replace && amp ? out - (amp >> 9) : 0, (vl + vr) / 2,
-				                     (vl < 0 ? -vl : vl) > (vr < 0 ? -vr : vr) ? (vl < 0 ? -vl : vl) : (vr < 0 ? -vr : vr));
-				/* The chip's own square sounds under the first 30 ms of a note and fades out: a short blip (a
-				 * message beep) stays a blip, and a held note gets a crisp start while the strings take over. */
+				orchestra_match_feed(m, square, (vl + vr) / 2, vpeak);	/* against the strings, before gain */
+				/* The chip's own square sounds under the first 30 ms of a note, at a third (a start, not an accent),
+				 * and fades out: a short blip (a message beep) stays a blip, and a held note gets a crisp start
+				 * while the strings take over. */
 				if (replace) {
 					const UINT fade = s_rate_30ms;
 					if (s->orch_age[c] < fade) {
-						sum += (SINT32)((SINT64)(out - (amp >> 9)) * (fade - s->orch_age[c]) / fade);
+						sum += (SINT32)((SINT64)square * (fade - s->orch_age[c]) / (fade * 3));
 						s->orch_age[c]++;
 					}
 					continue;

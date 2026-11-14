@@ -31,6 +31,17 @@ BLE のみ対応。パスコード入力を要するタイプの機器には対�
 ### マウスエミュレートタッチパネル
 
 タッチパネルがマウスとして動作します。
+メニューの **Touch Mouse Speed** で、速さを **Low / Medium / High** から選べます。
+
+### スクリーンキーボード
+
+メニューの **Screen Keyboard** で、画面に PC-98 のキーボードを表示します。
+**Portrait**（縦画面）、**Landscape**（横画面）、**Landscape-GAME**（横画面、ゲームでよく使うキーだけ）から選べます。
+
+### ステートセーブ
+
+メニューの **State Save** で、実行中の状態を microSD に 10 個まで保存し、あとで読み込めます。
+保存先は microSD の `PC98/STATE/` です。
 
 ### スクリーンショット機能
 
@@ -93,12 +104,13 @@ Windows なら `COMn` です。Tab5 の USB-C ポートは USB-Serial-JTAG と�
 #### ツールチェーン無しで書き込む場合
 
 ビルド済みファームウェアは [`firmware/`](firmware/) にあります。
+M5Burner でも公開しています。
 
 新規に導入する場合は、ブートローダー・パーティションテーブル・OTA初期データ・
 アプリを含む結合イメージを書き込みます。
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.2.0-20261109.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.3.0-20261114.bin
 ```
 
 同じパーティション構成から更新する場合は、アプリ単体を書き込みます。
@@ -159,6 +171,7 @@ CD-ROM には CD イメージ（`.ISO` または `.CUE`）を指定できます�
   **ILI9881C (ver.1) / ST7123 (ver.2) / ST7121 (ver.3)** のいずれかが使用されています。
   ILI9881C (ver.1) は、実機で確認できていないため、未対応です。
 - MIDI には対応していません。
+- ヘッドホンを挿している間は、スピーカーから音が出ません。
 
 ---
 

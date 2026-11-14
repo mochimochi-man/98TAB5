@@ -148,3 +148,14 @@ void kbd_bind(void)
 	kbd_changeclock();
 	io_sys(0x41, 0xcf1, out, in, 2);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void kbd_state(SsCtx *c)
+{
+	SS_VAR(c, "KBD ", s);
+}
+void kbd_fns(const void **t)
+{
+	t[SF_KBD_BYTE_TIME] = (const void *)byte_time;
+}

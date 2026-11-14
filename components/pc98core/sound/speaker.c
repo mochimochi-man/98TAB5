@@ -253,3 +253,13 @@ void spk_bind(void)
 {
 	snd_add_source(render, NULL, 1);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void spk_state(SsCtx *c)
+{
+	SS_VAR(c, "SPKl", s_log);
+	SS_VAR(c, "SPKw", s_wr);
+	SS_VAR(c, "SPKr", s_rd);
+	SS_VAR(c, "SPK ", r);
+}

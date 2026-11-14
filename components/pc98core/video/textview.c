@@ -12,7 +12,7 @@
  * character: low byte the row - 20h, high byte the column; a cell shows the right half when bit 7 of the low byte
  * is set or when the cell before it showed the left half of the same character (rows 09h-0Bh are half width).
  * The cursor (EAD, when CCHAR enables it) reverses the lines CTOP..CBOT of its cell; underline is the row's last
- * raster; the vertical line is the cell's leftmost dot.  40-column mode shows every other cell, 16 dots wide. */
+ * raster; the vertical line is the cell's fifth dot.  40-column mode shows every other cell, 16 dots wide. */
 #include <compiler.h>
 #include <cpulink.h>
 #include <pc98.h>
@@ -153,7 +153,7 @@ void textview_draw(int all, int blink_on, int cursor_on)
 					if (c->attr & 4) d ^= 0xff;
 					if (c->cursor && r >= ctop && r <= cbot) d ^= 0xff;
 					if (last && (c->attr & 8) && c->kind) d = 0xff;
-					if ((c->attr & 0x10) && !(g_vid.mode1 & M1_ATRSEL) && c->kind) d |= 0x80;
+					if ((c->attr & 0x10) && !(g_vid.mode1 & M1_ATRSEL) && c->kind) d |= 0x08;
 					if (!wide) {
 						q[0] = s_mask8[d][0] & c->color;
 						q[1] = s_mask8[d][1] & c->color;

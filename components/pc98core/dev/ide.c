@@ -608,3 +608,23 @@ uint8_t ide_in(uint32_t port)
 	}
 	return 0xff;
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void ide_state(SsCtx *c)
+{
+	/* the open images and the transfer buffer (heap) stay as they are; the buffer's bytes go out in 512 byte pieces */
+	const size_t keep[IDE_DRIVES + 1] = { offsetof(__typeof__(s), drv[0].d), offsetof(__typeof__(s), drv[1].d), offsetof(__typeof__(s), buf) };
+	uint8_t tmp[SECSZ];
+	unsigned i;
+
+	ss_blk_keep(c, "IDE ", &s, sizeof(s), keep, IDE_DRIVES + 1);
+	for (i = 0; i < MAXMULT; i++) {
+		if (s.buf) {
+			ss_blk(c, "IDEB", s.buf + i * SECSZ, SECSZ);
+		} else {
+			memset(tmp, 0, sizeof(tmp));
+			ss_blk(c, "IDEB", tmp, sizeof(tmp));
+		}
+	}
+}

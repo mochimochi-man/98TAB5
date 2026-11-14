@@ -65,6 +65,7 @@ void panel_tab5_blank_early(void);  // panel_tab5.cpp: kill the backlight and th
 void usb_msc_restore_phy_map(void);  // usb_msc.cpp: undo USB Mode's PHY swap
 void tab5_backlight_set(int percent);   // panel_tab5.cpp
 bool touch_mouse_init(void);            // touch_mouse.cpp: touch panel as the mouse
+void touch_mouse_set_speed(int s);      // touch_mouse.cpp: 0 low, 1 medium, 2 high
 void bt_hid_init(void);                 // bt_hid.cpp: BLE HID host via the ESP32-C6
 void rtc_tab5_sync(void);               // rtc_tab5.cpp: the RX8130CE clock
 void audio_set_volume(int percent);     // audio_codec.cpp
@@ -81,6 +82,8 @@ extern "C" int g_backlight_pct = 100;
 // (video_set_line200, video/compose.c).
 extern "C" void lcd_lamps_tick(void);    // lcd_mipi.cpp
 extern "C" void lcd_lamps_enable(bool on);
+extern "C" void lcd_set_osk(int mode);      // lcd_mipi.cpp: the on-screen keyboard, 0 off, 1 portrait, 2 landscape, 3 landscape-game
+static uint8_t s_osk_boot;
 extern "C" int g_line200 = 0;
 extern "C" void audio_set_fx(int mode);   // audio_codec.cpp
 
@@ -532,6 +535,10 @@ static void emu_task(void *arg) {
                 audio_set_fx(v);
             if (nvs_get_u8(nh, "lamps", &v) == ESP_OK)
                 lcd_lamps_enable(v != 0);
+            if (nvs_get_u8(nh, "osk", &v) == ESP_OK && v <= 3)
+                s_osk_boot = v;      // shown once machine_init has loaded the font its labels use
+            if (nvs_get_u8(nh, "mousespd", &v) == ESP_OK && v <= 2)
+                touch_mouse_set_speed(v);
             size_t len;
             len = sizeof(saved_hdd);
             {   // the CD-ROM image: the drive is fitted while one is chosen and still on the card
@@ -609,6 +616,7 @@ static void emu_task(void *arg) {
            (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     machine_init();
     machine_reset();
+    if (s_osk_boot) lcd_set_osk(s_osk_boot);
     // Which file was taken is on the "biosrom:" line from bios.c. This says
     // only whether a real ROM image is in memory at all, as against the
     // built-in BIOS - naming a file here read as though the one on the

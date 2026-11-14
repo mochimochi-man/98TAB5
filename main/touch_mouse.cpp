@@ -27,18 +27,30 @@
 #include "bsp/touch.h"
 
 #include "hid_input.h"
+#include "osk.h"
 
 extern "C" int ets_printf(const char *fmt, ...);
 
 // lcd_mipi.cpp: panel pixel -> PC-98 pixel, through the active scale mapping.
 // Returns false for a point outside the emulated screen (the letterbox).
 extern "C" bool lcd_panel_to_pc98(int panel_x, int panel_y, int *out_x, int *out_y);
+extern "C" bool lcd_osk_enabled(void);
 
-// A finger moves the cursor this many PC-98 pixels per PC-98 pixel of travel.
-// 1.0 would be exact, but the emulated screen is drawn at 1.8x so a 1:1 cursor
-// feels sluggish against what the eye sees on the glass.
-#define TOUCH_GAIN_NUM 2
-#define TOUCH_GAIN_DEN 1
+// A finger moves the cursor this many PC-98 pixels per PC-98 pixel of travel, in quarters, chosen in the menu:
+// 1.0, 1.5 or 2.0. The fractions left over are carried, so a slow drag still moves the cursor.
+static const int s_gain4[3] = { 4, 6, 8 };
+static volatile int s_speed = 1;
+static int s_rem_x, s_rem_y;
+
+extern "C" int touch_mouse_speed(void) { return s_speed; }
+extern "C" void touch_mouse_set_speed(int s) { if (s >= 0 && s <= 2) s_speed = s; }
+
+static int scaled(int d, int *rem) {
+    const int v = d * s_gain4[s_speed] + *rem;
+    const int out = v / 4;           // toward zero; the remainder keeps the sign
+    *rem = v - out * 4;
+    return out;
+}
 
 // A tap is a contact that ends quickly without going anywhere.
 #define TAP_MAX_MS   250
@@ -67,10 +79,27 @@ static void touch_task(void *arg) {
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(POLL_MS));
 
-        uint16_t tx[2] = {0, 0}, ty[2] = {0, 0};
+        uint16_t tx[5] = {0}, ty[5] = {0};
         uint8_t cnt = 0;
         esp_lcd_touch_read_data(s_tp);
-        const bool pressed = esp_lcd_touch_get_coordinates(s_tp, tx, ty, nullptr, &cnt, 2);
+        bool pressed = esp_lcd_touch_get_coordinates(s_tp, tx, ty, nullptr, &cnt, 5);
+        if (!pressed) {
+            cnt = 0;
+        }
+        // The on-screen keyboard takes the points that land on it; the rest steer the mouse.
+        const unsigned on_kbd = lcd_osk_enabled() ? osk_touch(tx, ty, cnt) : 0;
+        if (on_kbd) {
+            uint8_t k = 0;
+            for (uint8_t i = 0; i < cnt; i++) {
+                if (!(on_kbd & (1u << i))) {
+                    tx[k] = tx[i];
+                    ty[k] = ty[i];
+                    k++;
+                }
+            }
+            cnt = k;
+            pressed = cnt > 0;
+        }
 
         if (pressed && cnt > 0) {
             int px = 0, py = 0;
@@ -80,6 +109,7 @@ static void touch_task(void *arg) {
             if (!down) {
                 down = true;
                 travel = 0;
+                s_rem_x = s_rem_y = 0;
                 fingers_max = cnt;
                 t_down = xTaskGetTickCount();
             } else {
@@ -93,8 +123,8 @@ static void touch_task(void *arg) {
                     const int dy = py - prev_y;
                     travel += abs(dx) + abs(dy);
                     if (dx || dy) {
-                        hid_mouse_delta(dx * TOUCH_GAIN_NUM / TOUCH_GAIN_DEN,
-                                        dy * TOUCH_GAIN_NUM / TOUCH_GAIN_DEN, 0);
+                        const int mx = scaled(dx, &s_rem_x), my = scaled(dy, &s_rem_y);
+                        if (mx || my) hid_mouse_delta(mx, my, 0);
                     }
                 }
             }

@@ -1,11 +1,11 @@
 Sources for the two ROMs built into the firmware (main/rom/).
 
 PC98N.ROM              <- pc98_bios_native/pc98n.asm, via its build.sh
-    The PC-98 compatible BIOS, and the one that does the work: 8,636 bytes of
+    The PC-98 compatible BIOS, and the one that does the work: 8,663 bytes of
     code at F8000h that bring a machine up to the DOS prompt from a floppy and
     from a hard disk on its own. Needs nasm and python3; build.sh writes
     PC98N.ROM, which is main/rom/PC98N.ROM byte for byte (sha256
-    00d0a2b35646e0889e8114ae11ee78095244e24a246b4b804f7ea9d15914dd63), and
+    369472ae8ffe322530d985a520de89d82c9ba25eb262516a70bad13a14884119), and
     verify_rom.py checks the size, the signature and the reset vector before it
     will hand one over.
 

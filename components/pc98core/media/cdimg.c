@@ -10,6 +10,14 @@
 #include <ctype.h>
 #include "cdimg.h"
 #include "../include/hostfile.h"
+#ifdef ESP_PLATFORM
+#include "esp_attr.h"
+#else
+#define EXT_RAM_BSS_ATTR
+#endif
+
+/* One image at a time (there is one drive), kept in PSRAM: the S3 has little internal RAM to spare. */
+#define CUE_MAX		(16 * 1024)
 
 typedef struct {
 	char		*path;
@@ -33,6 +41,19 @@ struct cd_image {
 	int		open_file;	/* the file behind fh, -1 = none */
 	HFILE		fh;
 };
+
+static EXT_RAM_BSS_ATTR cd_image_t s_img;
+static EXT_RAM_BSS_ATTR char s_cue[CUE_MAX + 1];
+static int s_img_used;
+
+static cd_image_t *img_new(void)
+{
+	if (s_img_used) return NULL;
+	memset(&s_img, 0, sizeof(s_img));
+	s_img.open_file = -1;
+	s_img_used = 1;
+	return &s_img;
+}
 
 static int ends_with(const char *s, const char *ext)
 {
@@ -70,7 +91,7 @@ void cd_close(cd_image_t *c)
 	if (!c) return;
 	if (c->fh) hf_close(c->fh);
 	for (i = 0; i < c->nfiles; i++) free(c->file[i].path);
-	free(c);
+	if (c == &s_img) s_img_used = 0;
 }
 
 static cd_image_t *open_iso(const char *path)
@@ -79,9 +100,8 @@ static cd_image_t *open_iso(const char *path)
 	cd_image_t *c;
 
 	if (size < 2048 * 16) return NULL;
-	c = (cd_image_t *)calloc(1, sizeof(*c));
+	c = img_new();
 	if (!c) return NULL;
-	c->open_file = -1;
 	c->nfiles = 1;
 	c->file[0].path = dup_str(path);
 	c->file[0].sectors = (uint32_t)(size / 2048);
@@ -122,17 +142,15 @@ static cd_image_t *open_cue(const char *path)
 
 	if (!f) return NULL;
 	size = hf_size(f);
-	if (size <= 0 || size > 64 * 1024) { hf_close(f); return NULL; }
-	text = (char *)malloc((size_t)size + 1);
-	if (!text) { hf_close(f); return NULL; }
+	if (size <= 0 || size > CUE_MAX) { hf_close(f); return NULL; }
+	text = s_cue;
 	hf_seek(f, 0, HF_SEEK_SET);
 	size = (long)hf_read(f, text, (UINT)size);
 	hf_close(f);
 	text[size < 0 ? 0 : size] = '\0';
 
-	c = (cd_image_t *)calloc(1, sizeof(*c));
-	if (!c) { free(text); return NULL; }
-	c->open_file = -1;
+	c = img_new();
+	if (!c) return NULL;
 	strncpy(dir, path, sizeof(dir) - 1);
 	dir[sizeof(dir) - 1] = '\0';
 	{
@@ -193,8 +211,6 @@ static cd_image_t *open_cue(const char *path)
 			}
 		}
 	}
-	free(text);
-	text = NULL;
 	if (c->ntracks == 0) goto bad;
 
 	/* Lay the files end to end and give every track its start and length. */
@@ -224,7 +240,6 @@ static cd_image_t *open_cue(const char *path)
 	c->leadout = base;
 	return c;
 bad:
-	free(text);
 	cd_close(c);
 	return NULL;
 }

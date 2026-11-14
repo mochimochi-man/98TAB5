@@ -5,17 +5,24 @@ import subprocess,tempfile,re,sys,wave,struct,math,json
 root=Path(__file__).resolve().parents[1];core=root/'components/pc98core'
 output=Path(sys.argv[1]) if len(sys.argv)>1 else None
 src=(core/'sound/fm.c').read_text()
-# Build the previous signal path from the exact unaffected implementation.
-reference=src.replace('\n\torchestra_open(rate);','').replace('!orchestra_enabled() && !f->orchestra_mix && ','')
-start=reference.index('        if (orchestra_enabled() || f->orchestra_mix) {')
-end=reference.index('\n\t}\n}',start)
-reference=reference[:start]+'        lr[0] += v;\n        lr[1] += v;'+reference[end:]
+# Build the previous signal path from the exact unaffected implementation: fm.c with the replacement's lines taken out.
+def cut(text,old,new=''):
+    assert text.count(old)==1,old
+    return text.replace(old,new)
+def cut_block(text,first,last,new=''):
+    start=text.index(first);end=text.index(last,start)+len(last)
+    return text[:start]+new+text[end:]
+reference=cut(src,'\n\torchestra_open(rate);')
+reference=cut(reference,'!orchestra_enabled() && !f->orchestra_mix && ')
+reference=cut_block(reference,'\t\tconst int orch = ','\n')
+reference=cut_block(reference,'\t\t\tif (orch) {','\t\t\t}\n')
+reference=cut_block(reference,'\t\tif (orch) {','\t\telse {\n\t\t\tlr[0] += v;\n\t\t\tlr[1] += v;\n\t\t}','\t\tlr[0] += v;\n\t\tlr[1] += v;')
+assert 'orch)' not in reference and 'orchestra_frame' not in reference
 harness=r'''
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include <stddef.h>
-#include <time.h>
 #include <sound.h>
 #include "chips.h"
 void ref_fm_open(UINT);void ref_fm_set_volume(UINT);void ref_fm_reset(FmChip*);
@@ -158,17 +165,18 @@ int main(int argc,char **argv) {
   }
  }
  puts("PASS: Original/Synthesizer/Orchestra switching and sample resampling at both rates");
- /* Key-off/on register writes can both occur between output samples. A new
-  * note must restart a finished one-shot even when the sampled key bit stays 1. */
- fm_open(22050);fm_reset(&f);fm_orchestra_enable(2);patch(&f,3,0);
- for(int o=0;o<4;o++){f.ch[0].op[o].att=0;f.ch[0].op[o].state=3;}
- for(int n=0;n<22050*2;n++){SINT32 l,r;orchestra_frame(&f,&l,&r);}
- fm_key(&f,0);fm_key(&f,0xf0);
- long long retrigger_energy=0;
- for(int n=0;n<1024;n++){SINT32 l,r;orchestra_frame(&f,&l,&r);retrigger_energy+=(long long)l*l;}
- fprintf(stderr,"one-shot retrigger energy: %lld\n",retrigger_energy);
- assert(retrigger_energy>1000000);
- puts("PASS: back-to-back key-off/on restarts a finished acoustic one-shot");
+ /* A patch that dies away at once is the chip's own in Orchestra: FM drums and the ticks of a rhythm part stay
+  * what they are, at the level they are. */
+ {FmChip a,b;double ex=0,ey=0;fm_open(22050);fm_reset(&a);patch(&a,3,0);b=a;
+  for(int block=0;block<200;block++) {
+   SINT32 x[512]={0},y[512]={0};
+   fm_orchestra_enable(2);fm_render(&a,x,256);fm_orchestra_enable(0);fm_render(&b,y,256);
+   for(int i=0;i<512;i++){ex+=(double)x[i]*x[i];ey+=(double)y[i]*y[i];}
+  }
+  fprintf(stderr,"percussive patch Orchestra/Original %+.2f dB\n",10*log10(ex/ey));
+  assert(fabs(10*log10(ex/ey))<1.5);
+ }
+ puts("PASS: a percussive FM patch is the chip's own sound in Orchestra");
  /* Nearly-unison FM carrier detune must not turn identical recordings into
   * a deep periodic amplitude beat. Distinct musical notes remain independent. */
  fm_open(22050);fm_reset(&f);fm_orchestra_enable(2);f.ch[0].alg=4;
@@ -285,11 +293,6 @@ int main(int argc,char **argv) {
   assert(fabs(e[1]-e[0])<4.0 || (capped && e[1]<e[0]));
  }
  puts("PASS: every replaced part follows its native FM part loudness within 4 dB unless held by the headroom ceiling (all families, two levels, both modes)");
-
-
-
-
-
 }
 '''
 with tempfile.TemporaryDirectory(prefix='pc98-orchestra-') as tmp:

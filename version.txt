@@ -1,6 +1,17 @@
 98TAB5
 
 
+1.3.0   2026-11-14
+
+  - Fixed vertical lines in text screens.
+  - Fixed software that restarted over and over.
+  - Fixed key input lag at high CPU speeds.
+  - Fixed an issue where headphones were not recognized.
+  - Added an on-screen keyboard.
+  - Added state save.
+  - Added a touch mouse speed setting.
+  - Changed Orchestra samples.
+
 1.2.0   2026-11-09
 
   - Fixed the drive lamps.

@@ -94,3 +94,12 @@ void sysctl_bind(void)
 	io_port(0x043b, p43b_w, p43b_r);
 	io_port(0x043d, bank_w, NULL);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void sysctl_state(SsCtx *c)
+{
+	SS_VAR(c, "SYSn", s_nmi_open);
+	SS_VAR(c, "SYS9", s_p439);
+	SS_VAR(c, "SYSb", s_p43b);
+}

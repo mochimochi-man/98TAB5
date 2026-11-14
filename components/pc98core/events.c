@@ -182,3 +182,21 @@ void ev_rescale(UINT32 oldclock, UINT32 newclock)
 		g_cpu.slice_left = (SINT32)(((SINT64)g_cpu.slice_left * newclock + oldclock / 2) / oldclock);
 	}
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void events_state(SsCtx *c)
+{
+	void *orig[EV_COUNT];
+	UINT i;
+
+	for (i = 0; i < EV_COUNT; i++) {
+		if (!ss_loading(c)) ss_fn_encode(c, &s_slot[i].fn, &orig[i]);
+	}
+	SS_VAR(c, "EVSL", s_slot);
+	for (i = 0; i < EV_COUNT; i++) {
+		if (ss_loading(c)) ss_fn_decode(c, &s_slot[i].fn);
+		else ss_fn_put_back(&s_slot[i].fn, &orig[i]);
+	}
+	SS_VAR(c, "EVSQ", s_seq);
+}

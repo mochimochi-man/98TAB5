@@ -8,7 +8,8 @@
  *               PC-98: a press of the host key flips the lock, and the unit sends make when it locks, break when
  *               it unlocks.
  *   repeat      while a key is held, the newest one held repeats as break + make (g_settings.keyrepeat_*: the first
- *               after `delay` ms, then every `interval` ms).  Function keys, VF keys, SHIFT, CAPS, KANA, GRPH and
+ *               after `delay` ms, then every `interval` ms, counted in the machine's own time: when it runs slower
+ *               than real time the repeats slow down with it instead of piling up in the BIOS key buffer).  Function keys, VF keys, SHIFT, CAPS, KANA, GRPH and
  *               CTRL do not repeat.
  *   commands    9Ch p    repeat setting                  -> FAh
  *               9Dh 60h  read the lock LEDs              -> FAh, 70h | bit 3 KANA | bit 2 CAPS
@@ -22,6 +23,7 @@
 #include <host.h>
 #include <pc98.h>
 #include <kbd.h>
+#include <cpulink.h>
 
 #define K_CAPS	0x71
 #define K_KANA	0x72
@@ -32,11 +34,27 @@ static UINT8 s_down[128];	/* the key is held (or locked) */
 static UINT8 s_wait;		/* the command byte whose parameter comes next, or 0 */
 static UINT8 s_repeat_set;
 static int s_rep_key = -1;	/* the key that repeats */
-static UINT32 s_rep_due;	/* host_ms() of its next repeat */
+static UINT32 s_rep_due;	/* machine time (emu_ms()) of its next repeat */
+static UINT32 s_ms, s_frac, s_last;
+
+/* Milliseconds of machine time, from the clocks the CPU has run. */
+static UINT32 emu_ms(void)
+{
+	const UINT32 c = g_cpu.clocks_done + (UINT32)(g_cpu.slice_len - g_cpu.slice_left);
+	UINT32 d = c - s_last, per = g_mach.cpu_clock / 1000;
+
+	s_last = c;
+	if (per == 0) per = 1;
+	if (d > g_mach.cpu_clock) d = 0;		/* the count was restarted */
+	s_frac += d;
+	s_ms += s_frac / per;
+	s_frac %= per;
+	return s_ms;
+}
 
 static int repeats(UINT k)
 {
-	return !((k >= 0x52 && k <= 0x56) || (k >= 0x62 && k <= 0x6b) || (k >= 0x70 && k <= 0x74));
+	return !((k >= 0x52 && k <= 0x56) || (k >= 0x62 && k <= 0x6b) || (k >= 0x70 && k <= 0x74) || k == 0x7d);
 }
 
 static void send(UINT k, int make)
@@ -70,7 +88,7 @@ void keyunit_key(UINT code, int down)
 		send(k, 1);
 		if (repeats(k)) {
 			s_rep_key = (int)k;
-			s_rep_due = host_ms() + g_settings.key_repeat_delay_ms;
+			s_rep_due = emu_ms() + g_settings.key_repeat_delay_ms;
 		}
 	}
 	else {
@@ -93,8 +111,12 @@ void keyunit_release_all(void)
 void keyunit_tick(void)
 {
 	if (!g_settings.key_repeat || s_rep_key < 0) return;
-	if ((SINT32)(host_ms() - s_rep_due) < 0) return;
-	s_rep_due = host_ms() + g_settings.key_repeat_rate_ms;
+	{
+		const UINT32 now = emu_ms();
+
+		if ((SINT32)(now - s_rep_due) < 0) return;
+		s_rep_due = now + g_settings.key_repeat_rate_ms;
+	}
 	send((UINT)s_rep_key, 0);
 	send((UINT)s_rep_key, 1);
 }
@@ -153,4 +175,18 @@ void keyunit_reset_signal(void)
 	for (k = 0; k < 128; k++) {
 		if (s_down[k]) send(k, 1);
 	}
+}
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void keyunit_state(SsCtx *c)
+{
+	SS_VAR(c, "KUdn", s_down);
+	SS_VAR(c, "KUwt", s_wait);
+	SS_VAR(c, "KUrs", s_repeat_set);
+	SS_VAR(c, "KUrk", s_rep_key);
+	SS_VAR(c, "KUrd", s_rep_due);
+	SS_VAR(c, "KUms", s_ms);
+	SS_VAR(c, "KUfr", s_frac);
+	SS_VAR(c, "KUls", s_last);
 }

@@ -240,3 +240,10 @@ void pic_bind(void)
 
 	io_sys(0x00, 0xf1, out, in, 2);			/* 00h / 02h master, 08h / 0Ah slave (A3 selects the chip) */
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void pic_state(SsCtx *c)
+{
+	SS_VAR(c, "PIC ", s_pic);
+}

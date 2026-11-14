@@ -43,7 +43,8 @@ enum Pc98StepResult pc98_cpu_menu_step(unsigned menu,Pc98Mode286 *m,Pc98Cpu386St
  if(op==0x8c||op==0x8e||(protected_mode&&op==0xff)){modrm=pc98_cpu_fetch8(&probe,&f);if(probe.fault.valid){probe.fault.restart_ip=c->ip;c->fault=probe.fault;return PC98_STEP_FAULT;}if(op!=0xff&&((modrm>>3)&7u)>=4)ext=1;}
  if(op==0x0f){second=pc98_cpu_fetch8(&probe,&f);if(probe.fault.valid){probe.fault.restart_ip=c->ip;c->fault=probe.fault;return PC98_STEP_FAULT;}ext|=extension_opcode(second);}
  if(protected_mode){
-  if(!protected_opcode(op,second,modrm))return PC98_STEP_UNSUPPORTED;
+  /* The far transfers (JMP/CALL far, RETF, INT, IRET) without a 386 prefix are the 286's own: run them there. */
+  if(!protected_opcode(op,second,modrm))return ext||op==0x0f?PC98_STEP_UNSUPPORTED:pc98_cpu_mode_step286(m,c,io);
   unsigned port=(op>=0x6c&&op<=0x6f)||(op>=0xe4&&op<=0xe7)||(op>=0xec&&op<=0xef);
   if(port&&pc98_cpu_cpl16(c)>((c->flags>>12)&3u))return PC98_STEP_UNSUPPORTED;
  }

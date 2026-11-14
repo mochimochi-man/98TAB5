@@ -1,11 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) mochimochi-man / Uh
-"""Regenerate the embedded CC0 string-orchestra bank (normal builds use committed data).
+"""Regenerate the embedded CC0 orchestra bank (normal builds use committed data).
 
 Four bowed sections (violins, violas, celli, contrabass) at roughly five-semitone
 steps, each note in two independent recordings (two dynamic layers of the same
 section), plus harp one-shots. Two different recordings layered never comb-filter
-into a wah the way delayed copies of one recording do."""
+into a wah the way delayed copies of one recording do.
+
+Then the rest of the orchestra, one recording a note: horn, trumpet and trombone,
+flute, oboe, clarinet and bassoon sustains with their own attacks, and pizzicato
+basses and celli and glockenspiel one-shots."""
 from pathlib import Path
 import json,numpy as np,hashlib,math,re
 import argparse,urllib.request,urllib.parse,subprocess
@@ -19,6 +23,22 @@ SECTIONS=[
  (3,'Strings/Solo Contrabass/SusVib','BKCtbss_SusVib_{n}_{l}_rr1.wav',['F#0','A#0','D1','F#1','A1','C#2'],['v3','v1']),
 ]
 HARP=(4,'Strings/Harp',['E1_f','B1_mf','F2_mf','C3_mf','G3_mf','D4_mf','A4_mf','E5_mf','B5_mf','F6_mf'])
+# family, directory, file pattern (NOTE), notes, sustain length, loop crossfade
+WINDS=[
+ (5,'Brass/F Horn/sus','MOHorn_sus_{n}_1.wav',['D#1_v2','A#1_v2','F2_v2','C3_v2','D4_v1'],26460,512),
+ (6,'Brass/Trumpet/sus','Sum_SHTrumpet_sus_{n}_v3_rr1.wav',['F2','C3','G3','D4','A4'],26460,512),
+ (7,'Brass/Tenor Trombone/sus','tenortbn_sus_{n}_v2_1.wav',['A#0','D#1','A#1','F2','C3','F3'],26460,512),
+ (8,'Woodwinds/Flute/susvib','LDFlute_susvib_{n}_v1_1.wav',['C3','A3','E4','C5','E5'],33075,1024),
+ (9,'Woodwinds/Oboe/Vib','Oboe_Vib_{n}_v3_Main.wav',['A#2','F3','D4','A#4','F5'],33075,1024),
+ (10,'Woodwinds/Clarinet/susLong','DCClar_susLong_{n}_v2_rr1_sum.wav',['D2','A#2','F3','D4','A#4','F#5'],26460,512),
+ (11,'Woodwinds/Bassoon/sus','PSBassoon_{n}_v2_1.wav',['A#0','F1','C2','G2','C3','G#3'],26460,512),
+]
+# family, directory, file pattern (NOTE), notes, length
+SHORTS=[
+ (12,'Strings/Solo Contrabass/Pizz','BKCtbss_Pizz_{n}_v1_rr1.wav',['F#0','A#0','E1','A1','E2'],22050),
+ (13,'Strings/Cello Section/pizzT','pizzT_{n}_v2_RR1.wav',['C1','G1','D2','A2','E3','B3'],22050),
+ (14,'Percussion/Glock','glock_medium_{n}.wav',['G5','C6','G6','C7'],26460),
+]
 RATE=22050;SUSTAIN=26460;PLUCK=33075;LOOP_START=5500;CROSS=512
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--cache',type=Path,required=True)
@@ -69,34 +89,67 @@ def envelope(x,w,circular):
         y=np.concatenate([x[-w:],x,x[:w]])**2;return np.sqrt(np.convolve(y,k,'same')[w:-w])
     return np.sqrt(np.convolve(x*x,k,'same'))
 
-def sustain(v,frequency):
-    """Loop the bowed body, then flatten its slow level swell: a short loop
-    repeats any bow/vibrato swell as a periodic wah."""
-    head=v[LOOP_START:LOOP_START+CROSS];hn=np.linalg.norm(head);period=round(RATE/frequency)
+def steady(v,ls,frequency):
+    """Hold every harmonic of the loop at its own level. A section's players drift against each other, and each
+    harmonic of the recording swells and fades with that (10 to 20 dB); in a loop of under a second the same swells
+    come round every time, and a held note waves. The loop is taken apart into its harmonics (it is circular, so one
+    transform of the whole loop does it exactly), each is levelled, and what leads into the loop is brought to the
+    same levels over its last tenth of a second."""
+    loop=v[ls:];n=len(loop);win=int(RATE*.03)
+    def bands(x):
+        X=np.fft.fft(x);f=np.fft.fftfreq(len(x),1/RATE);h=np.rint(np.abs(f)/frequency).astype(int)
+        top=min(48,int((RATE/2-frequency)/frequency))
+        out=[]
+        for k in range(1,top+1):
+            Z=np.where((h==k)&(f>0),2*X,0);out.append(np.fft.ifft(Z))
+        rest=x-sum(z.real for z in out) if out else x
+        return out,rest
+    lb,lrest=bands(loop);pb,prest=bands(v)
+    ramp=min(ls,int(RATE*.1));t=np.zeros(ls);t[ls-ramp:]=np.linspace(0,1,ramp) if ramp else 0
+    new=lrest.copy();pre=prest[:ls].copy()
+    for z,zp in zip(lb,pb):
+        e=np.abs(z);pad=np.concatenate((e[-win:],e,e[:win]));c=np.cumsum(np.concatenate(([0.],pad)))
+        e=(c[2*win+1:2*win+1+n]-c[:n])/(2*win+1)
+        g=np.clip(float(np.mean(e))/np.maximum(e,1e-6),.25,4.)
+        new+=z.real*g;pre+=zp.real[:ls]*(1+t*(g[0]-1))
+    v=v.copy();v[ls:]=new;v[:ls]=pre
+    return v
+
+def sustain(v,frequency,cross=CROSS,span=0):
+    """Loop the body, then flatten its slow level swell: a short loop repeats
+    any bow/vibrato swell as a periodic wah.
+    cross: the loop's crossfade. span: how far back the loop's end may be looked
+    for; a solo player's vibrato has to meet itself in step as well as the
+    waveform, so those look over a whole turn of it."""
+    head=v[LOOP_START:LOOP_START+cross];hn=np.linalg.norm(head);period=round(RATE/frequency)
     def coherence(end):
-        tail=v[end-CROSS:end];return np.dot(head,tail)/(hn*np.linalg.norm(tail)+1e-12)
-    end=max(range(len(v)-min(2*period,1024),len(v)+1),key=coherence)
-    v=v[:end].copy();w=np.linspace(1/CROSS,1,CROSS)
-    v[-CROSS:]=v[-CROSS:]*(1-w)+v[LOOP_START:LOOP_START+CROSS]*w
-    ls=LOOP_START+CROSS;win=int(RATE*.04)
+        tail=v[end-cross:end];return np.dot(head,tail)/(hn*np.linalg.norm(tail)+1e-12)
+    end=max(range(len(v)-max(span,min(2*period,1024)),len(v)+1),key=coherence)
+    v=v[:end].copy();w=np.linspace(1/cross,1,cross)
+    v[-cross:]=v[-cross:]*(1-w)+v[LOOP_START:LOOP_START+cross]*w
+    ls=LOOP_START+cross;win=int(RATE*.04)
     loop=v[ls:];target=math.sqrt(float(np.mean(loop**2)))
     before=envelope(loop,win,True);gain=np.clip(target/np.maximum(before,1),.5,2.)
     v[ls:]=loop*gain
     ramp=min(ls,int(RATE*.1));pre=envelope(v[:ls],win,False)[ls-ramp:]
     t=np.linspace(0,1,ramp);v[ls-ramp:ls]*=(1-t)+t*np.clip(target/np.maximum(pre,1),.5,2.)
+    v=steady(v,ls,frequency)
+    peak=abs(v).max()
+    if peak>32000:v*=32000/peak
     after=envelope(v[ls:],win,True)
     swell=(20*math.log10(before.max()/max(before.min(),1)),20*math.log10(after.max()/max(after.min(),1)))
     return v,ls,swell
 
 bank=bytearray();zones=[];info=[]
-def add(family,layer,path,note,looping,octave_base=2):
+def add(family,layer,path,note,looping,octave_base=2,length=0,cross=CROSS):
     local,v=fetch(path)
-    v,start=trim(v,SUSTAIN if looping else PLUCK)
+    v,start=trim(v,length or (SUSTAIN if looping else PLUCK))
     frequency=measure(v,label_hz(note,octave_base))
     sustained=math.sqrt(float(np.mean(v[4000:16000]**2)))
     v*=min(12000/max(sustained,1),30000/max(abs(v).max(),1))
     swell=None
-    if looping:v,ls,swell=sustain(v,frequency)
+    # the solo winds with vibrato (the long crossfade) look for their loop's end over 0.3 s
+    if looping:v,ls,swell=sustain(v,frequency,cross,int(RATE*.3) if cross>CROSS else 0)
     else:
         fade=441;v[-fade:]*=np.linspace(1,0,fade);ls=0
     pcm=np.clip(np.rint(v),-32767,32767).astype('<i2').tobytes();offset=len(bank)//2;bank.extend(pcm)
@@ -114,10 +167,15 @@ for family,directory,pattern,notes,layers in SECTIONS:
     for note in notes:
         for layer,tag in enumerate(layers):add(family,layer,directory+'/'+pattern.format(n=note,l=tag),note,True)
 for name in HARP[2]:add(HARP[0],0,HARP[1]+'/KSHarp_'+name+'.wav',name.split('_')[0],False,1)
+for family,directory,pattern,notes,length,cross in WINDS:
+    for note in notes:add(family,0,directory+'/'+pattern.format(n=note),note.split('_')[0],True,2,length,cross)
+for family,directory,pattern,notes,length in SHORTS:
+    for note in notes:add(family,0,directory+'/'+pattern.format(n=note),note,False,2,length)
 
 (out/'orchestra_bank.bin').write_bytes(bank)
 h=['/* Generated from CC0 VSCO 2 CE; see samples/SOURCES.json and LICENSE. */',
-   '/* family: 0 violins, 1 violas, 2 celli, 3 contrabass, 4 harp. layer: independent recording 0 / 1. */',
+   '/* family: 0 violins, 1 violas, 2 celli, 3 contrabass, 4 harp, 5 horn, 6 trumpet, 7 trombone, 8 flute, 9 oboe, 10 clarinet,',
+   ' * 11 bassoon, 12 pizzicato basses, 13 pizzicato celli, 14 glockenspiel. layer: independent recording 0 / 1. */',
    'typedef struct { UINT32 offset,length,loop_start,loop_end,rate,gain_q12; } OrchSampleLevel;',
    'typedef struct { UINT family,root_inc,layer; OrchSampleLevel level[5]; } OrchSampleZone;',
    'static const OrchSampleZone sample_zones[] = {']
@@ -130,7 +188,7 @@ assert (out/'LICENSE').exists()
 (out/'SOURCES.json').write_text(json.dumps({'library':'VSCO 2 Community Edition','license':'CC0-1.0','upstream':'https://github.com/sgossner/VSCO-2-CE','commit':COMMIT,
     'bank_sha256':hashlib.sha256(bank).hexdigest(),'bytes':len(bank),
     'format':'signed little-endian mono PCM16 at 22050 Hz; one level per zone (zones at about five-semitone steps)','sources':info},indent=2)+'\n')
-(out/'README.md').write_text('''# Compact string-orchestra sample bank
+(out/'README.md').write_text('''# Compact orchestra sample bank
 
 Derived from VSCO 2 Community Edition (CC0-1.0).
 Recorded by Sam Gossner & Simon Dalzell; original sample cutting by Elan Hickler / Soundemote.
@@ -138,12 +196,14 @@ Upstream: https://github.com/sgossner/VSCO-2-CE
 Publisher: https://versilian-studios.com/vsco-community/
 
 Violin, viola and cello section and solo contrabass sustains with vibrato at about five-semitone steps, each note in two
-independent recordings (two dynamic layers), and harp one-shots. Adaptations: mono conversion, 22050 Hz resampling,
-attack trimming, DC removal, level normalization, crossfaded sustain loops whose slow level swell is flattened (so a
-short loop does not repeat it as a wah), and harp fade-outs. No source game audio is included.
+independent recordings (two dynamic layers), and harp one-shots; horn, trumpet, trombone, flute, oboe, clarinet
+and bassoon sustains, pizzicato basses and celli and glockenspiel one-shots, one recording a note. Adaptations: mono
+conversion, 22050 Hz resampling, attack trimming, DC removal, level normalization, crossfaded sustain loops whose slow
+level swell is flattened and whose harmonics are each held at their own level (so a short loop does not repeat the
+players' drifting as a wave), and one-shot fade-outs. No source game audio is included.
 
 SOURCES.json records the exact upstream revision, file hashes, measured tuning and the loop swell before / after.
 LICENSE contains the upstream CC0 dedication. The normal build is offline and uses the committed bank directly.
 Regeneration requires Python, NumPy and FFmpeg; see tools/generate_orchestra_bank.py.
 ''')
-print('BANK BYTES',len(bank),'zones',len(zones));assert len(bank)<6*1048576
+print('BANK BYTES',len(bank),'zones',len(zones));assert len(bank)<9*1048576

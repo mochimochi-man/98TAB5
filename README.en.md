@@ -34,6 +34,17 @@ BLE only. Devices that require a passcode to pair are not supported.
 ### Touch panel as a mouse
 
 The touch panel acts as a mouse.
+**Touch Mouse Speed** in the menu sets its speed: **Low / Medium / High**.
+
+### Screen keyboard
+
+**Screen Keyboard** in the menu shows a PC-98 keyboard on the screen:
+**Portrait**, **Landscape**, or **Landscape-GAME** (landscape, with only the keys games use most).
+
+### State save
+
+**State Save** in the menu saves the running machine to the microSD card, up to 10 states, and loads them back.
+They are kept in `PC98/STATE/` on the card.
 
 ### Screenshots
 
@@ -96,12 +107,13 @@ monitor with `Ctrl-]`. `./flash.sh [PORT]` is the same thing.
 #### Without a toolchain
 
 Pre-built firmware is in [`firmware/`](firmware/).
+It is also published on M5Burner.
 
 For a new installation, write the merged image, which contains the bootloader,
 partition table, initial OTA data and application:
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.2.0-20261109.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.3.0-20261114.bin
 ```
 
 For an update with the same partition layout, write only the application to
@@ -165,6 +177,7 @@ is no time limit.**
   The ILI9881C (ver.1) is not supported, as it could not be checked on real
   hardware.
 - MIDI is not supported.
+- The speaker is silent while headphones are plugged in.
 
 ---
 

@@ -377,3 +377,63 @@ void pc98_adapt_exec(void)
     } while (g_cpu.slice_left > 0);
     pc98_adapt_mirror();
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+#include <stddef.h>
+void cpu_state(SsCtx *c)
+{
+    /* The adapter holds hooks and pointers to its own members (set up by adopt() at every reset): only its plain
+     * data goes out, into the adapter the running machine has already built. */
+    struct {
+        uint8_t cache_initialized, shutdown;
+        Pc98CpuFault16 delivery_fault;
+        Pc98ProtectedSegments286 segments;
+        Pc98TaskRegisters286 task;
+        uint16_t msw;
+        uint8_t npx_busy;
+        Pc98Table286 idt;
+        Pc98Cpu386State s;
+        unsigned switched, menu, active, stopped, pending, rep_valid, nfetch, fast_ok, irqend;
+        uint16_t rep_ip;
+        uint8_t ib[8], stop_bytes[8];
+        uint32_t stop_pc;
+        unsigned long long retired;
+    } a;
+    /* extended memory and the EMS frames are pointers the machine owns; the bytes behind ext go out in state.c */
+    static const size_t keep[] = {
+        offsetof(CpuLink, ext), offsetof(CpuLink, ext_at1m),
+        offsetof(CpuLink, ems_frame[0]), offsetof(CpuLink, ems_frame[1]), offsetof(CpuLink, ems_frame[2]), offsetof(CpuLink, ems_frame[3])
+    };
+    Pc98Adapter *A = &g_cpuad;
+
+    ss_blk_keep(c, "CPUL", &g_cpu, sizeof(g_cpu), keep, sizeof(keep) / sizeof(keep[0]));
+    memset(&a, 0, sizeof(a));
+    if (!ss_loading(c)) {
+        a.cache_initialized = A->mode.cache_initialized; a.shutdown = A->mode.shutdown;
+        a.delivery_fault = A->mode.delivery_fault; a.segments = A->mode.segments; a.task = A->mode.task;
+        a.msw = A->mode.system.msw; a.npx_busy = A->mode.system.npx_busy; a.idt = A->mode.interrupts.idt;
+        a.s = A->s;
+        a.switched = A->switched; a.menu = A->menu; a.active = A->active; a.stopped = A->stopped; a.pending = A->pending;
+        a.rep_valid = A->rep_valid; a.nfetch = A->nfetch; a.fast_ok = A->fast_ok; a.irqend = A->irqend;
+        a.rep_ip = A->rep_ip; memcpy(a.ib, A->ib, 8); memcpy(a.stop_bytes, A->stop_bytes, 8);
+        a.stop_pc = A->stop_pc; a.retired = A->retired;
+    }
+    ss_blk(c, "CPUA", &a, sizeof(a));
+    if (ss_loading(c)) {
+        A->mode.cache_initialized = a.cache_initialized; A->mode.shutdown = a.shutdown;
+        A->mode.delivery_fault = a.delivery_fault; A->mode.segments = a.segments; A->mode.task = a.task;
+        A->mode.system.msw = a.msw; A->mode.system.npx_busy = a.npx_busy; A->mode.interrupts.idt = a.idt;
+        A->s = a.s;
+        A->switched = a.switched; A->menu = a.menu; A->active = a.active; A->stopped = a.stopped; A->pending = a.pending;
+        A->rep_valid = a.rep_valid; A->nfetch = a.nfetch; A->fast_ok = a.fast_ok; A->irqend = a.irqend;
+        A->rep_ip = a.rep_ip; memcpy(A->ib, a.ib, 8); memcpy(A->stop_bytes, a.stop_bytes, 8);
+        A->stop_pc = a.stop_pc; A->retired = a.retired;
+        /* derived: the prepared bus and the fast loop's clock tables are built again when next needed */
+        A->pbus_valid = 0;
+        A->mck_mi = 0;
+    }
+    ss_blk(c, "MWTt", &g_memwait_tram, sizeof(g_memwait_tram));
+    ss_blk(c, "MWTv", &g_memwait_vram, sizeof(g_memwait_vram));
+    ss_blk(c, "MWTg", &g_memwait_grcg, sizeof(g_memwait_grcg));
+}

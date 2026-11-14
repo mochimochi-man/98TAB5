@@ -262,7 +262,7 @@ static long io_call(const IoReq &r) {
 //  the exec context and per-sector open/close overhead disappears.
 // ============================================================================
 #define OPEN_CACHE_SLOTS 4
-struct CacheSlot { char path[MAX_PATH + 8]; int fd; };
+struct CacheSlot { char path[MAX_PATH + 8]; int fd; bool rw; };
 static CacheSlot s_cache[OPEN_CACHE_SLOTS];
 static bool s_cache_initialized;
 
@@ -274,19 +274,26 @@ static void cache_init(void) {
 
 // Return an fd for `full`, opening (once) O_RDWR with O_RDONLY fallback so the
 // same fd serves both reads and writes. Cached across calls; -1 on failure.
-static int cache_open(const char *full) {
+// `rw`: writable or nothing. A file marked read-only then fails here, and the disk code opens it again read-only
+// and reports the disk as write-protected - rather than taking a read-only handle as writable and failing later
+// writes as I/O errors.
+static int cache_open(const char *full, bool rw) {
     cache_init();
     for (int i = 0; i < OPEN_CACHE_SLOTS; i++)
-        if (s_cache[i].fd >= 0 && strcmp(s_cache[i].path, full) == 0)
+        if (s_cache[i].fd >= 0 && strcmp(s_cache[i].path, full) == 0) {
+            if (rw && !s_cache[i].rw) return -1;
             return s_cache[i].fd;
+        }
     IoReq r{}; r.op = IOP_OPEN; r.path = full; r.flags = O_RDWR;
     int fd = (int)io_call(r);
-    if (fd < 0) { r.flags = O_RDONLY; fd = (int)io_call(r); }
+    bool got_rw = fd >= 0;
+    if (fd < 0 && !rw) { r.flags = O_RDONLY; fd = (int)io_call(r); }
     if (fd < 0) return -1;
     for (int i = 0; i < OPEN_CACHE_SLOTS; i++) {
         if (s_cache[i].fd < 0) {
             snprintf(s_cache[i].path, sizeof(s_cache[i].path), "%s", full);
             s_cache[i].fd = fd;
+            s_cache[i].rw = got_rw;
             return fd;
         }
     }
@@ -372,7 +379,7 @@ static const uint8_t *builtin_lookup(const char *path, size_t *len) {
 
 // ---- open / create ----
 // Reads/writes of existing files go through the persistent cache (see above).
-static HFILE open_cached(const char *path) {
+static HFILE open_cached(const char *path, bool rw) {
     {   // a built-in ROM? Then there is no file and no SD access at all.
         size_t blen = 0;
         const uint8_t *blob = builtin_lookup((const char *)path, &blen);
@@ -387,14 +394,14 @@ static HFILE open_cached(const char *path) {
     }
     char full[MAX_PATH + 8];
     map_path(full, sizeof(full), path);
-    int fd = cache_open(full);
+    int fd = cache_open(full, rw);
     if (fd < 0) return NULL;
     RFILE *h = new RFILE();
     h->fd = fd;
     return (HFILE)h;
 }
-HFILE hf_open_rw(const char *path)    { return open_cached(path); }
-HFILE hf_open(const char *path) { return open_cached(path); }
+HFILE hf_open_rw(const char *path)    { return open_cached(path, true); }
+HFILE hf_open(const char *path) { return open_cached(path, false); }
 // Create bypasses the cache (fresh O_CREAT|O_TRUNC fd, closed normally).
 HFILE hf_create(const char *path)  {
     char full[MAX_PATH + 8];

@@ -94,3 +94,10 @@ void ppi_bind(void)
 	io_sys(0x30, 0xf1, ser_out, ser_in, 2);
 	for (i = 0; i < 8; i++) io_port(ext[i], none_w, none_r);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void ppi_state(SsCtx *c)
+{
+	SS_VAR(c, "PPI ", s_portc);
+}

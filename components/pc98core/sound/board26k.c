@@ -191,3 +191,15 @@ void board_bind(void)
 	snd_add_source(ssg_render, &b.ssg, 0);
 	snd_add_source(fm_render, &b.fm, 0);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void board_state(SsCtx *c)
+{
+	SS_VAR(c, "B26K", b);
+}
+void board_fns(const void **t)
+{
+	t[SF_B26_TIMER_A] = (const void *)timer_a;
+	t[SF_B26_TIMER_B] = (const void *)timer_b;
+}

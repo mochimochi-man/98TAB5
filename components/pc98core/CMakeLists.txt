@@ -26,7 +26,7 @@ if(PC98_NEWCPU)
 endif()
 
 idf_component_register(
-    SRCS rom/rom.c util/pcstr.c machine.c bus.c config.c events.c io.c dev/pic.c dev/pit.c dev/ppi.c dev/rtc.c dev/kbd.c dev/keyunit.c dev/mouse.c dev/dma8237.c media/fdmedia.c media/fdm_d88.c media/fdm_raw.c media/drives.c dev/fdc765.c media/hddmedia.c dev/sasi.c dev/sasi_bind.c dev/ide.c dev/atapi.c media/cdimg.c dev/cgwin.c video/crtc.c video/vram.c video/egc.c video/gdc.c video/gdcfig.c video/cgrom.c video/textview.c video/grphview.c video/compose.c sound/mixer.c sound/speaker.c sound/board26k.c sound/ssg.c sound/fm.c sound/orchestra.c sound/orchestra_sampler.c dev/sysctl.c dev/artic.c ${NEWCPU_SRCS}
+    SRCS rom/rom.c util/pcstr.c machine.c bus.c config.c events.c io.c dev/pic.c dev/pit.c dev/ppi.c dev/rtc.c dev/kbd.c dev/keyunit.c dev/mouse.c dev/dma8237.c media/fdmedia.c media/fdm_d88.c media/fdm_raw.c media/drives.c dev/fdc765.c media/hddmedia.c dev/sasi.c dev/sasi_bind.c dev/ide.c dev/atapi.c media/cdimg.c dev/cgwin.c video/crtc.c video/vram.c video/egc.c video/gdc.c video/gdcfig.c video/cgrom.c video/textview.c video/grphview.c video/compose.c sound/mixer.c sound/speaker.c sound/board26k.c sound/ssg.c sound/fm.c sound/orchestra.c sound/orchestra_sampler.c dev/sysctl.c dev/artic.c state.c ${NEWCPU_SRCS}
     INCLUDE_DIRS . include
     REQUIRES esp_rom esp_timer
     LDFRAGMENTS linker.lf

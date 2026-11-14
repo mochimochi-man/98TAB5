@@ -34,14 +34,14 @@ static long io_call(const IoReq &r) {
 fixture=r"""
 int main() {
  hf_term(); assert(calls.empty());
- int a=cache_open("/sd/a.hdm"); assert(a==10 && cache_owns(a));
- hf_init(); assert(cache_open("/sd/a.hdm")==a); // startup must not orphan a pre-opened file
- int b=cache_open("/sd/b.hdm"); assert(b==11);
+ int a=cache_open("/sd/a.hdm",true); assert(a==10 && cache_owns(a));
+ hf_init(); assert(cache_open("/sd/a.hdm",true)==a); // startup must not orphan a pre-opened file
+ int b=cache_open("/sd/b.hdm",true); assert(b==11);
  hf_term();
  assert((calls==std::vector<int>{10,11,1010,2010,1011,2011}));
  assert(!cache_owns(a) && !cache_owns(b));
  hf_term(); assert(calls.size()==6); // safe on repeated unmount
- int c=cache_open("/sd/a.hdm"); assert(c==12);
+ int c=cache_open("/sd/a.hdm",true); assert(c==12);
  fail_sync=true; hf_term();
  assert(calls[calls.size()-2]==1012 && calls.back()==2012 && !cache_owns(c));
  RFILE file{17}; assert(hf_write(&file,nullptr,0)==0);

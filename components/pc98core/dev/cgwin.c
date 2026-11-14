@@ -118,3 +118,13 @@ void cgwin_bind(void)
 
 	io_sys(0xa1, 0xf1, out, in, 8);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void cgwin_state(SsCtx *c)
+{
+	SS_VAR(c, "CGWn", g_cgwin);
+	SS_VAR(c, "CGWc", s_code);
+	SS_VAR(c, "CGWl", s_line);
+	SS_VAR(c, "CGWh", s_half);
+}

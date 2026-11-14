@@ -54,13 +54,13 @@ static int s_volume = 70;                       // ES8388 output level, 0-100
 //   1  retired      old Warm settings normalize to Original
 //   2  Hall         filtered native FM with stereo room ambience
 //   3  Synthesizer  procedural instrument replacement with ambience
-//   4  Orchestra    compact acoustic sample replacement with ambience
+//   4  Orchestra    an orchestra's instruments in place of the chip's, in a concert hall
 extern "C" void fm_orchestra_enable(int on);
 static volatile int s_fx = 0;
 #define PRIME_MS 80
-#define HIGH_MS  150
+#define RING_TARGET_MS 40   // what the ring is kept at, on top of the codec's own buffer
+static float s_target_frames = 22050.0f * RING_TARGET_MS / 1000;
 static size_t s_prime_bytes = 22050 * RING_FRAME * PRIME_MS / 1000;
-static size_t s_high_bytes = 22050 * RING_FRAME * HIGH_MS / 1000;
 static int s_fx_rate = 22050;
 
 struct biquad {
@@ -112,6 +112,18 @@ struct fx_line {
 
 static fx_line s_comb[2][FX_COMBS];
 static fx_line s_allp[2][FX_ALLPS];
+
+// Orchestra's own room: a concert hall, not the studio above. Freeverb's full
+// eight combs a side, half as long again, behind a 20ms pre-delay: a tail of
+// about two seconds, which is what makes separate players one orchestra.
+#define HALL_COMBS 8
+#define HALL_ALLPS 4
+#define HALL_PRE   441
+static const int k_hall_comb[HALL_COMBS] = {809, 877, 937, 1009, 1069, 1151, 1223, 1297};
+static const int k_hall_allp[HALL_ALLPS] = {278, 220, 170, 112};
+static fx_line s_hcomb[2][HALL_COMBS];
+static fx_line s_hallp[2][HALL_ALLPS];
+static fx_line s_hpre;
 static biquad  s_lp, s_shelf;
 static bool    s_fx_ready = false;
 static float  *s_wide;                  // FX_WIDE_LEN samples of the mono signal
@@ -136,21 +148,37 @@ static inline float allp_run(fx_line &a, float x) {
     return b - x;
 }
 
+static void line_clear(fx_line &c) {
+    memset(c.buf, 0, sizeof(float) * c.len);
+    c.pos = 0;
+    c.store = 0.0f;
+}
+
+static bool line_alloc(fx_line &c, int len) {
+    c.len = len;
+    c.buf = (float *)heap_caps_malloc(sizeof(float) * len, MALLOC_CAP_SPIRAM);
+    return c.buf != nullptr;
+}
+
 static void fx_reset(void) {
     const float fs = (float)s_fx_rate;
     bq_lowpass(s_lp, fs, 6500.0f, 0.6f);
     bq_lowshelf(s_shelf, fs, 180.0f, 5.0f);
     for (int ch = 0; ch < 2; ch++) {
         for (int k = 0; k < FX_COMBS; k++) {
-            memset(s_comb[ch][k].buf, 0, sizeof(float) * s_comb[ch][k].len);
-            s_comb[ch][k].pos = 0;
-            s_comb[ch][k].store = 0.0f;
+            line_clear(s_comb[ch][k]);
         }
         for (int k = 0; k < FX_ALLPS; k++) {
-            memset(s_allp[ch][k].buf, 0, sizeof(float) * s_allp[ch][k].len);
-            s_allp[ch][k].pos = 0;
+            line_clear(s_allp[ch][k]);
+        }
+        for (int k = 0; k < HALL_COMBS; k++) {
+            line_clear(s_hcomb[ch][k]);
+        }
+        for (int k = 0; k < HALL_ALLPS; k++) {
+            line_clear(s_hallp[ch][k]);
         }
     }
+    line_clear(s_hpre);
     memset(s_wide, 0, sizeof(float) * FX_WIDE_LEN);
     s_wide_pos = 0;
 }
@@ -158,23 +186,30 @@ static void fx_reset(void) {
 static bool fx_init(int rate) {
     s_fx_rate = rate;
     for (int ch = 0; ch < 2; ch++) {
-        const int sp = ch ? FX_SPREAD : 0;
+        const int sp = ch ? FX_SPREAD : 0;   // the right side tuned a little apart from the left
         for (int k = 0; k < FX_COMBS; k++) {
-            s_comb[ch][k].len = k_comb_len[k] + sp;
-            s_comb[ch][k].buf = (float *)heap_caps_malloc(sizeof(float) * s_comb[ch][k].len,
-                                                          MALLOC_CAP_SPIRAM);
-            if (!s_comb[ch][k].buf) {
+            if (!line_alloc(s_comb[ch][k], k_comb_len[k] + sp)) {
                 return false;
             }
         }
         for (int k = 0; k < FX_ALLPS; k++) {
-            s_allp[ch][k].len = k_allp_len[k] + sp;
-            s_allp[ch][k].buf = (float *)heap_caps_malloc(sizeof(float) * s_allp[ch][k].len,
-                                                          MALLOC_CAP_SPIRAM);
-            if (!s_allp[ch][k].buf) {
+            if (!line_alloc(s_allp[ch][k], k_allp_len[k] + sp)) {
                 return false;
             }
         }
+        for (int k = 0; k < HALL_COMBS; k++) {
+            if (!line_alloc(s_hcomb[ch][k], k_hall_comb[k] + sp)) {
+                return false;
+            }
+        }
+        for (int k = 0; k < HALL_ALLPS; k++) {
+            if (!line_alloc(s_hallp[ch][k], k_hall_allp[k] + sp)) {
+                return false;
+            }
+        }
+    }
+    if (!line_alloc(s_hpre, HALL_PRE)) {
+        return false;
     }
     s_wide = (float *)heap_caps_malloc(sizeof(float) * FX_WIDE_LEN, MALLOC_CAP_SPIRAM);
     if (!s_wide) {
@@ -216,7 +251,25 @@ static void fx_process(const int16_t *p, int16_t *o, int frames, int mode) {
             l = bq_run(s_shelf, 0, l);
             r = bq_run(s_shelf, 1, r);
         }
-        if (mode >= 2) {
+        if (mode == 4) {
+            // The hall: the whole orchestra into one room, a moment late.
+            const float in = s_hpre.buf[s_hpre.pos];
+            s_hpre.buf[s_hpre.pos] = (l + r) * 0.015f;
+            if (++s_hpre.pos >= s_hpre.len) {
+                s_hpre.pos = 0;
+            }
+            float wl = 0.0f, wr = 0.0f;
+            for (int k = 0; k < HALL_COMBS; k++) {
+                wl += comb_run(s_hcomb[0][k], in, 0.87f, 0.40f);
+                wr += comb_run(s_hcomb[1][k], in, 0.87f, 0.40f);
+            }
+            for (int k = 0; k < HALL_ALLPS; k++) {
+                wl = allp_run(s_hallp[0][k], wl);
+                wr = allp_run(s_hallp[1][k], wr);
+            }
+            l = l * 0.85f + wl * 0.85f + wr * 0.15f;
+            r = r * 0.85f + wr * 0.85f + wl * 0.15f;
+        } else if (mode >= 2) {
             const float in = (l + r) * 0.015f;
             float wl = 0.0f, wr = 0.0f;
             for (int k = 0; k < FX_COMBS; k++) {
@@ -272,13 +325,51 @@ extern "C" int audio_get_fx(void) {
     return s_fx;
 }
 
+// ---- clock drift -------------------------------------------------------------
+// The emulator and the codec run on different clocks, so what is waiting in the ring drifts up or down. Correcting
+// that by dropping or inserting whole frames is a small step in the wave each time - a crackle. Instead each block is
+// resampled, a fraction of a percent faster or slower, which is smooth: the ring is held at RING_TARGET_MS and the
+// codec's own buffer never runs dry.
+struct resampler {
+    float phase;        // where the next output frame falls, in input frames from the start of the block
+    float fill_avg;     // the ring's fill, smoothed, in frames
+    int16_t last[2];    // the previous block's last frame: the left end of the first interpolation
+};
+
+// How fast to read the coming block: above 1 while the ring holds more than the target, below while it holds less.
+static float rs_step(resampler &rs, size_t ring_bytes) {
+    rs.fill_avg += ((float)ring_bytes / RING_FRAME - rs.fill_avg) * (1.0f / 32.0f);
+    const float step = 1.0f + (rs.fill_avg - s_target_frames) / s_target_frames * 0.002f;
+    return step > 1.003f ? 1.003f : step < 0.997f ? 0.997f : step;
+}
+
+// Linear interpolation over [the previous block's last frame, this block]; returns the frames written to out.
+static int rs_run(resampler &rs, const int16_t *in, int frames, float step, int16_t *out) {
+    int n = 0;
+    while (rs.phase < (float)frames) {
+        const int i = (int)rs.phase;
+        const float t = rs.phase - (float)i;
+        const float l0 = i ? in[2 * (i - 1)] : rs.last[0], r0 = i ? in[2 * (i - 1) + 1] : rs.last[1];
+        out[2 * n] = (int16_t)(l0 + (in[2 * i] - l0) * t);
+        out[2 * n + 1] = (int16_t)(r0 + (in[2 * i + 1] - r0) * t);
+        n++;
+        rs.phase += step;
+    }
+    rs.phase -= (float)frames;
+    rs.last[0] = in[2 * (frames - 1)];
+    rs.last[1] = in[2 * (frames - 1) + 1];
+    return n;
+}
+
 // ---- core 0: drain the ring into the codec --------------------------------
 static void audio_task(void *arg) {
     (void)arg;
     // 4KB = 512 ring frames = ~23ms per codec write. On the S3 this was 1KB
     // because the ring behind it was small; here it just means fewer wakeups.
     static uint8_t rx[4096] __attribute__((aligned(4)));
-    static int16_t mix[sizeof(rx) / RING_FRAME * 2];  // what goes to the codec
+    static int16_t mix[sizeof(rx) / RING_FRAME * 2];  // the block with the effects
+    static int16_t out[sizeof(rx) / RING_FRAME * 2 + 64];  // ...resampled: what goes to the codec
+    resampler rs = {0.0f, s_target_frames, {0, 0}};
     size_t carry = 0;  // bytes of a split ring frame held back from last time
     int fx_was = 0;
     bool primed = false;
@@ -317,33 +408,48 @@ static void audio_task(void *arg) {
                 }
                 fx_was = fx;
             }
-            // The chips render a hair faster than the codec plays (about
-            // 22,100 against 22,050 a second), so the cushion grows until the
-            // ring is full and a whole block has to be refused - a click.
-            // Past HIGH_MS, take two frames out of the block instead, each
-            // folded into its neighbour: a 0.1% tightening nobody can hear.
-            int frames = (int)(play / RING_FRAME);
-            if (frames >= 16 && xStreamBufferBytesAvailable(s_ring) > s_high_bytes) {
-                int16_t *f = (int16_t *)rx;
-                for (int cut = 0; cut < 2; cut++) {
-                    const int j = frames * (cut + 1) / 3;
-                    for (int c = 0; c < 4; c++) {
-                        f[4 * j + c] = (int16_t)((f[4 * j + c] + f[4 * j + 4 + c]) / 2);
-                    }
-                    memmove(&f[4 * (j + 1)], &f[4 * (j + 2)], (size_t)(frames - j - 2) * RING_FRAME);
-                    frames--;
-                }
-            }
+            const int frames = (int)(play / RING_FRAME);
+            const float step = rs_step(rs, xStreamBufferBytesAvailable(s_ring));
             if (fx && s_fx_ready) {
                 fx_process((const int16_t *)rx, mix, frames, fx);
             } else {
                 mix_plain((const int16_t *)rx, mix, frames);
             }
-            esp_codec_dev_write(s_spk, mix, frames * 4);
+            esp_codec_dev_write(s_spk, out, rs_run(rs, mix, frames, step, out) * 4);
         }
         if (carry) {
             memmove(rx, rx + play, carry);
         }
+    }
+}
+
+// ---- headphones -----------------------------------------------------------
+// The codec drives the headphone socket and the speaker's amplifier alike, so with a plug in both played. The socket's
+// switch is on the first I/O expander (0x43), pin 7, which reads 1 with a plug in (measured on the board): the
+// amplifier is on only without one.
+static void hp_task(void *arg) {
+    (void)arg;
+    esp_io_expander_handle_t io = bsp_io_expander_init();
+    int state = -1, seen = -1, same = 0;
+    if (io) {
+        esp_io_expander_set_dir(io, IO_EXPANDER_PIN_NUM_7, IO_EXPANDER_INPUT);
+    }
+    for (;;) {
+        uint32_t level = 0;
+        if (io && esp_io_expander_get_level(io, IO_EXPANDER_PIN_NUM_7, &level) == ESP_OK) {
+            const int in = (level & IO_EXPANDER_PIN_NUM_7) ? 1 : 0;
+            if (in == seen) {
+                same++;
+            } else {
+                seen = in;
+                same = 0;
+            }
+            if (same >= 2 && in != state) {      // the same three times running: the plug is in, or out
+                state = in;
+                bsp_feature_enable(BSP_FEATURE_SPEAKER, !in);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(150));
     }
 }
 
@@ -407,12 +513,13 @@ extern "C" bool audio_init(int rate, int maxframes) {
     }
 
     s_prime_bytes = (size_t)rate * RING_FRAME * PRIME_MS / 1000;
-    s_high_bytes = (size_t)rate * RING_FRAME * HIGH_MS / 1000;
+    s_target_frames = (float)rate * RING_TARGET_MS / 1000;
     if (!fx_init(rate)) {
         ets_printf("audio: no memory for the effects - they stay off\n");
     }
     s_ok = true;
     xTaskCreatePinnedToCore(audio_task, "audio", 4096, nullptr, 6, nullptr, 0);
+    xTaskCreatePinnedToCore(hp_task, "phones", 3072, nullptr, 2, nullptr, 0);
     ets_printf("audio: codec ready rate=%d\n", rate);
     return true;
 }

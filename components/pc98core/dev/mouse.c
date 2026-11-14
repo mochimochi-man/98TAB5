@@ -204,3 +204,14 @@ void mouse_bind(void)
 	io_port(0x7fdf, ctrl_w, NULL);
 	io_port(0xbfdb, rate_w, NULL);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void mouse_state(SsCtx *c)
+{
+	SS_VAR(c, "MOUS", s);
+}
+void mouse_fns(const void **t)
+{
+	t[SF_MOUSE_IRQ] = (const void *)irq_event;
+}

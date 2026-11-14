@@ -59,7 +59,7 @@ void cpu_link_ext_resize(UINT32 bytes)
 
 	if (g_cpu.ext_size != bytes) {
 		free(g_cpu.ext);
-		g_cpu.ext = bytes ? (UINT8 *)malloc(bytes + 16) : NULL;
+		g_cpu.ext = bytes ? (UINT8 *)calloc(1, bytes + 16) : NULL;	/* zeroed: the state save leaves all-zero pages out */
 		g_cpu.ext_size = g_cpu.ext ? bytes : 0;
 	}
 	g_cpu.ext_at1m = g_cpu.ext ? g_cpu.ext - 0x100000 : NULL;

@@ -444,3 +444,14 @@ int sasi_phase(void)
 {
 	return s.phase;
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void sasi_state(SsCtx *c)
+{
+	/* the open images (heap) stay as they are */
+	const size_t keep[SASI_UNITS] = { offsetof(__typeof__(s), disk[0]), offsetof(__typeof__(s), disk[1]) };
+
+	ss_blk_keep(c, "SASI", &s, sizeof(s), keep, SASI_UNITS);
+	ss_blk(c, "SASb", s_buf, sizeof(s_buf));
+}

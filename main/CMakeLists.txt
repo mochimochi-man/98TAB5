@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.cpp" "hostfile_sd.cpp" "platform_stubs.cpp" "lcd_mipi.cpp" "panel_tab5.cpp" "usb_kbd.cpp" "audio_codec.cpp" "menu_disk.cpp" "fdd_ext.cpp" "touch_mouse.cpp" "rtc_tab5.cpp" "screenshot.cpp" "bt_hid.cpp" "usb_msc.cpp" "usb_image.cpp" "sd_tab5.cpp"
+    SRCS "main.cpp" "hostfile_sd.cpp" "platform_stubs.cpp" "lcd_mipi.cpp" "panel_tab5.cpp" "usb_kbd.cpp" "audio_codec.cpp" "menu_disk.cpp" "fdd_ext.cpp" "touch_mouse.cpp" "osk.cpp" "rtc_tab5.cpp" "screenshot.cpp" "bt_hid.cpp" "usb_msc.cpp" "usb_image.cpp" "sd_tab5.cpp"
     INCLUDE_DIRS "."
     # The compatible BIOS and font, built into the image rather than read off
     # the SD card. The card is still searched first when the menu names a file,

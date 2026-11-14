@@ -277,3 +277,29 @@ void dma_bind(void)
 	io_sys(0x21, 0xcf1, page_out, NULL, 8);
 	for (n = 0; n < 4; n++) io_port(0x0e05 + n * 2, page_hi_w, NULL);
 }
+
+/* ---- state save / load (state.c) ---- */
+#include <stateint.h>
+void dma_state(SsCtx *c)
+{
+	void *orig[4];
+	UINT i;
+
+	for (i = 0; i < 4; i++) {
+		if (!ss_loading(c)) ss_fn_encode(c, &s_ch[i].dev, &orig[i]);
+	}
+	SS_VAR(c, "DMAc", s_ch);
+	for (i = 0; i < 4; i++) {
+		if (ss_loading(c)) ss_fn_decode(c, &s_ch[i].dev);
+		else ss_fn_put_back(&s_ch[i].dev, &orig[i]);
+	}
+	SS_VAR(c, "DMAm", s_mask);
+	SS_VAR(c, "DMAs", s_status);
+	SS_VAR(c, "DMAC", s_command);
+	SS_VAR(c, "DMAf", s_flip);
+	SS_VAR(c, "DMAa", g_dma_active);
+}
+void dma_fns(const void **t)
+{
+	t[SF_DMA_NONE] = &s_none;
+}
