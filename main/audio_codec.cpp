@@ -426,13 +426,15 @@ static void audio_task(void *arg) {
 // ---- headphones -----------------------------------------------------------
 // The codec drives the headphone socket and the speaker's amplifier alike, so with a plug in both played. The socket's
 // switch is on the first I/O expander (0x43), pin 7, which reads 1 with a plug in (measured on the board): the
-// amplifier is on only without one.
+// amplifier is on only without one. The pin needs the expander's pull-up: the driver's reset leaves every pin pulled
+// down, and pulled down it reads 0 with or without a plug.
 static void hp_task(void *arg) {
     (void)arg;
     esp_io_expander_handle_t io = bsp_io_expander_init();
     int state = -1, seen = -1, same = 0;
     if (io) {
         esp_io_expander_set_dir(io, IO_EXPANDER_PIN_NUM_7, IO_EXPANDER_INPUT);
+        esp_io_expander_set_pullupdown(io, IO_EXPANDER_PIN_NUM_7, IO_EXPANDER_PULL_UP);
     }
     for (;;) {
         uint32_t level = 0;
