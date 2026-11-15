@@ -40,6 +40,7 @@ typedef struct Pc98Settings {
 	char	model[8];		/* "VX" or "VM" */
 	UINT	base_clock;		/* CLK_BASE5 or CLK_BASE8 */
 	UINT	clock_mul;		/* CPU clock = base clock x clock_mul */
+	UINT8	gdc_clock;		/* the graphics GDC's drawing speed: GdcClock */
 	UINT8	dip_switch[3];
 	UINT8	mem_switch[8];		/* copied to A3FE2h + 4n at reset */
 	UINT8	ext_mb;			/* extended memory (at most 13, none on a V30) */
@@ -62,6 +63,17 @@ typedef struct Pc98Settings {
 	char	font_file[CFG_PATH_MAX];
 	char	rom_dir[CFG_PATH_MAX];
 } Pc98Settings;
+
+/* g_settings.gdc_clock: how long the graphics GDC takes over a drawing, from the clock it would run at */
+enum GdcClock {
+	GDC_CLK_2_5,		/* 2.5 MHz */
+	GDC_CLK_5,		/* 5 MHz */
+	GDC_CLK_10,		/* 10 MHz */
+	GDC_CLK_20,		/* 20 MHz */
+	GDC_CLK_CPU,		/* 2.5 MHz at x4, rising and falling with the CPU's multiple */
+	GDC_CLK_NOWAIT,		/* no drawing time: the DRAWING bit never goes on */
+	GDC_CLK_COUNT
+};
 
 /* what a reset makes of the settings */
 typedef struct {

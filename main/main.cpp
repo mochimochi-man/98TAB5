@@ -419,6 +419,8 @@ static void emu_task(void *arg) {
     // whatever the software is actually doing. The default is x3; the menu
     // still goes up to x10.
     g_settings.clock_mul = 3;
+    // The VM's graphics GDC runs at 5MHz; the menu can change it.
+    g_settings.gdc_clock = GDC_CLK_5;
     // Extended (XMS) memory. 13MB is the most a PC-9801VX could take, and _MALLOC lands it in PSRAM -
     // the P4 has 32MB and about 24MB of it free at this point, so the old 1MB
     // (chosen when the S3's 8MB had to cover the frame buffers too) has no
@@ -539,6 +541,8 @@ static void emu_task(void *arg) {
                 s_osk_boot = v;      // shown once machine_init has loaded the font its labels use
             if (nvs_get_u8(nh, "mousespd", &v) == ESP_OK && v <= 2)
                 touch_mouse_set_speed(v);
+            if (nvs_get_u8(nh, "gdcclock", &v) == ESP_OK && v < GDC_CLK_COUNT)
+                g_settings.gdc_clock = v;
             size_t len;
             len = sizeof(saved_hdd);
             {   // the CD-ROM image: the drive is fitted while one is chosen and still on the card

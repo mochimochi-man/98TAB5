@@ -12,8 +12,11 @@
  *   A4h        the graphics page shown;  A6h  the graphics page the CPU reaches
  *   A8h-AEh    palette: 8 colours: A8h colours 3 / 7, AAh 1 / 5, ACh 2 / 6, AEh 0 / 4 (bits 6-4 / 2-0, G R B);
  *              16 colours: A8h the entry, AAh green, ACh red, AEh blue (4 bits)
- * Status: bit 0 data to read, bit 2 FIFO empty, bit 3 drawing, bit 5 vertical retrace, bit 6 horizontal blanking.
- * The GDCs carry out a command as soon as it and its parameters are complete, so their FIFO is always empty.
+ * Status: bit 0 data to read, bit 1 FIFO full, bit 2 FIFO empty, bit 3 drawing, bit 5 vertical retrace, bit 6
+ * horizontal blanking.
+ * The GDCs carry out a command as soon as it and its parameters are complete.  While the graphics GDC draws, the bytes
+ * written to it wait in its FIFO (16 of them; more are lost) and are carried out when the drawing ends (gdcfig.c), so
+ * software waiting for an empty FIFO waits for the drawing too.
  *
  * Commands (uPD7220): RESET 00h (+ SYNC parameters, display off), SYNC 0Eh / 0Fh (display off / on), VSYNC 6Eh / 6Fh,
  * CCHAR 4Bh, START 6Bh, BCTRL 0Ch / 0Dh (and 05h) display off / on, ZOOM 46h, CURS 49h, PRAM 70h-7Fh, PITCH 47h,
@@ -146,7 +149,7 @@ void gdc_frame_start(void)
 static REG8 status(const Gdc *g)
 {
 	const UINT32 pos = now() - s_frame_t0;
-	REG8 v = 0x04;
+	REG8 v = g->nfifo ? (g->nfifo >= GDC_FIFO ? 0x02 : 0x00) : 0x04;
 
 	if (g->nrd) v |= 0x01;
 	if (g->drawing) v |= 0x08;
@@ -328,12 +331,39 @@ static REG8 read_data(Gdc *g)
 	return 0xff;
 }
 
+/* a byte for the graphics GDC (bit 8 set: a command): into the FIFO while it draws */
+static void g_put(UINT16 v)
+{
+	Gdc *g = &g_ggdc;
+
+	if (g->drawing || g->nfifo) {
+		if (g->nfifo < GDC_FIFO) g->fifo[g->nfifo++] = v;
+		return;
+	}
+	if (v & 0x100) command(g, (UINT8)v);
+	else parameter(g, (UINT8)v);
+}
+
+void gdc_fifo_run(void)
+{
+	Gdc *g = &g_ggdc;
+	UINT i = 0;
+
+	while (i < g->nfifo && !g->drawing) {		/* until a byte starts another drawing */
+		const UINT16 v = g->fifo[i++];
+		if (v & 0x100) command(g, (UINT8)v);
+		else parameter(g, (UINT8)v);
+	}
+	memmove(g->fifo, g->fifo + i, (g->nfifo - i) * sizeof(g->fifo[0]));
+	g->nfifo = (UINT8)(g->nfifo - i);
+}
+
 static void t_param_w(UINT port, REG8 v) { (void)port; parameter(&g_tgdc, (UINT8)v); }
 static void t_cmd_w(UINT port, REG8 v) { (void)port; command(&g_tgdc, (UINT8)v); }
 static REG8 t_status_r(UINT port) { (void)port; return status(&g_tgdc); }
 static REG8 t_data_r(UINT port) { (void)port; return read_data(&g_tgdc); }
-static void g_param_w(UINT port, REG8 v) { (void)port; parameter(&g_ggdc, (UINT8)v); }
-static void g_cmd_w(UINT port, REG8 v) { (void)port; command(&g_ggdc, (UINT8)v); }
+static void g_param_w(UINT port, REG8 v) { (void)port; g_put((UINT8)v); }
+static void g_cmd_w(UINT port, REG8 v) { (void)port; g_put((UINT16)(0x100 | (UINT8)v)); }
 static REG8 g_status_r(UINT port) { (void)port; return status(&g_ggdc); }
 static REG8 g_data_r(UINT port) { (void)port; return read_data(&g_ggdc); }
 

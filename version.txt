@@ -10,6 +10,7 @@
   - Added an on-screen keyboard.
   - Added state save.
   - Added a touch mouse speed setting.
+  - Added a GDC clock setting.
   - Changed Orchestra samples.
 
 1.2.0   2026-11-09

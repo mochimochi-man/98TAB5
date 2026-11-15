@@ -127,6 +127,7 @@ void	gdc_bind(void);
 void	gdc_timing(void);			/* recompute the frame timing (also after a CPU clock change) */
 void	gdc_frame_start(void);			/* start of a frame: arms the end of its display period */
 void	video_map_update(void);			/* the CPU's graphics VRAM window follows the GRCG / EGC / page state */
+void	gdc_fifo_run(void);			/* the graphics GDC's drawing ended: carry out what waits in its FIFO */
 
 /* gdcfig.c */
 void	gdcfig_init(void);

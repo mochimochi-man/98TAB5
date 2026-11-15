@@ -323,11 +323,14 @@ static int ui_group(int x0, int x1, int y, const UiRow *rows, int n, int on, int
 enum { UK_UPDOWN = 1, UK_LEFTRIGHT = 2 };
 typedef struct { int kind; const char *cap; const char *hint; } UiKey;
 
-static void ui_footer(const UiKey *k, int n) {
-    const int fy = 372;
-    int x = UI_L;
+// The key hints from x along the line at fy; `measure` only returns where they would end.
+static int ui_keys(const UiKey *k, int n, int x, int fy, bool measure) {
     for (int i = 0; i < n; i++) {
         const int w = k[i].kind ? 30 : (int)strlen(k[i].cap) * 8 + 12;
+        if (measure) {
+            x += w + 8 + (int)strlen(k[i].hint) * 8 + (i < n - 1 ? 24 : 0);
+            continue;
+        }
         lcd_ui_fill(x, fy, x + w, fy + 20, UI_KEY, 4);
         if (k[i].kind == UK_UPDOWN) {
             lcd_ui_tri(x + 6, fy + 4, UI_TEXT, -1);
@@ -338,8 +341,18 @@ static void ui_footer(const UiKey *k, int n) {
         } else {
             lcd_ui_text(x + 6, fy + 2, k[i].cap, UI_TEXT);
         }
-        x = lcd_ui_text(x + w + 8, fy + 2, k[i].hint, UI_DIM) + 24;
+        x = lcd_ui_text(x + w + 8, fy + 2, k[i].hint, UI_DIM) + (i < n - 1 ? 24 : 0);
     }
+    return x;
+}
+
+static void ui_footer(const UiKey *k, int n) {
+    ui_keys(k, n, UI_L, 372, false);
+}
+
+// The key hints right-aligned on the title line, for a screen that needs the bottom for its rows.
+static void ui_header_keys(const UiKey *k, int n) {
+    ui_keys(k, n, UI_R - ui_keys(k, n, 0, 0, true), 11, false);
 }
 
 // A list longer than its group: a thin track and thumb inside the group's right edge.
@@ -407,7 +420,7 @@ static int ext_match(const char *name, int drive) {
 // Shown on the screenshot row once one has been taken.
 static char s_last_shot[24] = {0};
 
-// The main screen: two columns of grouped settings. sel 0..21 runs down the left column and on into the right.
+// The main screen: two columns of grouped settings. sel 0..22 runs down the left column and on into the right.
 static int sound_step(int current,int direction,bool wrap) {
     static const int order[]={0,2,3,4};
     int at=0;for(int i=0;i<4;i++)if(order[i]==current)at=i;
@@ -423,6 +436,7 @@ static void draw_drives(int sel) {
     static const char *const sfx[] = {"Original", "Original", "Hall", "Synthesizer (HVY)", "Orchestra (HVY)"};
     static const char *const oskn[] = {"Off", "Portrait", "Landscape", "Landscape-GAME"};
     static const char *const msp[] = {"Low", "Medium", "High"};
+    static const char *const gdcn[] = {"2.5MHz", "5MHz", "10MHz", "20MHz", "Linked to CPU", "Unsynced"};
     char clk[16], cpu[48], bios[32], font[32], bl[16], vol[16];
     const unsigned mhz100 = (unsigned)((uint64_t)g_settings.base_clock * g_settings.clock_mul / 10000u);
     snprintf(clk, sizeof(clk), "%u.%02uMHz x%u", mhz100 / 100, mhz100 % 100, (unsigned)g_settings.clock_mul);
@@ -448,8 +462,10 @@ static void draw_drives(int sel) {
         { "FDD1", d[0], UI_ACTION, 0, 0 }, { "FDD2", d[1], UI_ACTION, 0, 0 }, { "HDD", d[2], UI_ACTION, 0, 0 },
         { "CD-ROM", cdv, UI_ACTION, 0, 0 }, { "Create New Disk", NULL, UI_ACTION, 0, 0 },
     };
-    const UiRow sys[6] = {
+    const UiRow sys[7] = {
         { "CPU Clock", clk, UI_ADJUST, 0, 0 }, { "Clock Family", family, UI_ADJUST, 0, 0 },
+        // How long the graphics GDC's drawings take (gdcfig.c).
+        { "GDC Clock", gdcn[g_settings.gdc_clock < GDC_CLK_COUNT ? g_settings.gdc_clock : 0], UI_ADJUST, 0, 0 },
         { "CPU", cpu, UI_ADJUST, 0, 0 },
         { "BIOS", bios, UI_ACTION, 0, 0 }, { "Font", font, UI_ACTION, 0, 0 },
         { "Touch Mouse Speed", msp[touch_mouse_speed()], UI_ADJUST, 0, 0 },
@@ -476,18 +492,18 @@ static void draw_drives(int sel) {
     const int lx0 = UI_L, lx1 = 308, rx0 = 332, rx1 = UI_R;
     int y = 50;
     ui_section(lx0, lx1, y, "DISKS", NULL);
-    y = ui_group(lx0, lx1, y + 22, disks, 5, sel, 0) + 8;   // 8, as on the right: SYSTEM has six rows
+    y = ui_group(lx0, lx1, y + 22, disks, 5, sel, 0) + 8;
     ui_section(lx0, lx1, y, "SYSTEM", NULL);
-    ui_group(lx0, lx1, y + 22, sys, 6, sel - 5, 0);
+    ui_group(lx0, lx1, y + 22, sys, 7, sel - 5, 0);
     y = 50;
     ui_section(rx0, rx1, y, "DISPLAY & SOUND", NULL);
-    y = ui_group(rx0, rx1, y + 22, av, 6, sel - 11, 0) + 8;   // 8, not 14: TOOLS has five rows now and must clear the key caps
+    y = ui_group(rx0, rx1, y + 22, av, 6, sel - 12, 0) + 8;
     ui_section(rx0, rx1, y, "TOOLS", NULL);
-    ui_group(rx0, rx1, y + 22, tools, 5, sel - 17, 0);
+    ui_group(rx0, rx1, y + 22, tools, 5, sel - 18, 0);
     static const UiKey keys[4] = {
         { UK_UPDOWN, NULL, "Select" }, { UK_LEFTRIGHT, NULL, "Change" }, { 0, "Enter", "OK" }, { 0, "Esc", "Close" },
     };
-    ui_footer(keys, 4);
+    ui_header_keys(keys, 4);   // twelve rows on the left reach down to where the key caps would be
 }
 
 static int name_cmp(const void *a, const void *b) {
@@ -948,6 +964,7 @@ static void save_settings(void) {
         nvs_set_u8(nh, "lamps", lcd_lamps_enabled() ? 1 : 0);
         nvs_set_u8(nh, "osk", (uint8_t)lcd_osk_mode());
         nvs_set_u8(nh, "mousespd", (uint8_t)touch_mouse_speed());
+        nvs_set_u8(nh, "gdcclock", g_settings.gdc_clock);
         extern bool g_sd_ok;
         if (g_sd_ok) {      // no card: every name reads as missing, keep what was stored
             nvs_set_str(nh, "biosfile", g_bios_file);
@@ -1480,27 +1497,27 @@ extern "C" void menu_disk_run(void) {
         if (!menu_key_pop(&nk, &dn)) { vTaskDelay(pdMS_TO_TICKS(20)); continue; }
         if (!dn) continue;
         if (nk == NK_ESC) break;
-        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 21;
-        if (key_is_down(nk)) sel = (sel < 21) ? sel + 1 : 0;
+        if (key_is_up(nk))   sel = (sel > 0) ? sel - 1 : 22;
+        if (key_is_down(nk)) sel = (sel < 22) ? sel + 1 : 0;
         // Left/right adjust the rows that hold a value rather than doing
         // something; everywhere else they are ignored.
         {
             const int dir = key_is_right(nk) ? 1 : (key_is_left(nk) ? -1 : 0);
             if (dir) {
-                if (sel == 11) {
+                if (sel == 12) {
                     g_backlight_pct = level_step(g_backlight_pct, dir, false);
                     tab5_backlight_set(g_backlight_pct);
-                } else if (sel == 12) {
-                    audio_set_volume(level_step(audio_get_volume(), dir, false, 0));
                 } else if (sel == 13) {
+                    audio_set_volume(level_step(audio_get_volume(), dir, false, 0));
+                } else if (sel == 14) {
                     line200_apply(wrap_step(g_line200, dir, 3));
                     line200_refresh();
-                } else if (sel == 15) {
-                    lcd_lamps_enable(dir > 0);
                 } else if (sel == 16) {
+                    lcd_lamps_enable(dir > 0);
+                } else if (sel == 17) {
                     lcd_set_osk(osk_step(dir));
                     lcd_menu_clear();
-                } else if (sel == 14) {
+                } else if (sel == 15) {
                     audio_set_fx(sound_step(audio_get_fx(),dir,true));
                 } else if (sel == 5) {
                     const UINT mult = clock_step(g_settings.clock_mul, dir, false);
@@ -1509,8 +1526,10 @@ extern "C" void menu_disk_run(void) {
                 } else if (sel == 6) {
                     g_settings.base_clock = dir > 0 ? CLK_BASE5 : CLK_BASE8;
                 } else if (sel == 7) {
+                    g_settings.gdc_clock = (UINT8)wrap_step(g_settings.gdc_clock, dir, GDC_CLK_COUNT);
+                } else if (sel == 8) {
                     g_cpu_mode = cpu_step(g_cpu_mode, dir, true);
-                } else if (sel == 10) {
+                } else if (sel == 11) {
                     touch_mouse_set_speed(wrap_step(touch_mouse_speed(), dir, 3));
                 }
             }
@@ -1525,40 +1544,42 @@ extern "C" void menu_disk_run(void) {
                 g_speed_req = (int)mult;        // emulator loop applies it
             } else if (sel == 6) {              // oscillator family: applies on reset
                 g_settings.base_clock = g_settings.base_clock == CLK_BASE8 ? CLK_BASE5 : CLK_BASE8;
-            } else if (sel == 7) {              // CPU: next, wrapping
+            } else if (sel == 7) {              // GDC clock: next, wrapping
+                g_settings.gdc_clock = (UINT8)wrap_step(g_settings.gdc_clock, 1, GDC_CLK_COUNT);
+            } else if (sel == 8) {              // CPU: next, wrapping
                 g_cpu_mode = cpu_step(g_cpu_mode, 1, true);
-            } else if (sel == 8) {              // BIOS ROM: pick a file from the SD
+            } else if (sel == 9) {              // BIOS ROM: pick a file from the SD
                 browse_rom(0);
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 9) {              // FONT ROM: pick a file from the SD
+            } else if (sel == 10) {             // FONT ROM: pick a file from the SD
                 browse_rom(1);
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 10) {             // Touch mouse speed: low, medium, high
+            } else if (sel == 11) {             // Touch mouse speed: low, medium, high
                 touch_mouse_set_speed(wrap_step(touch_mouse_speed(), 1, 3));
-            } else if (sel == 11) {              // Backlight: next, wrapping
+            } else if (sel == 12) {              // Backlight: next, wrapping
                 g_backlight_pct = level_step(g_backlight_pct, 1, true);
                 tab5_backlight_set(g_backlight_pct);
-            } else if (sel == 12) {              // Volume: next, wrapping
+            } else if (sel == 13) {              // Volume: next, wrapping
                 audio_set_volume(level_step(audio_get_volume(), 1, true, 0));
-            } else if (sel == 13) {              // 200-line graphics: next, wrapping
+            } else if (sel == 14) {              // 200-line graphics: next, wrapping
                 line200_apply((g_line200 + 1) % 3);
                 line200_refresh();
-            } else if (sel == 14) {              // Sound: next, wrapping
+            } else if (sel == 15) {              // Sound: next, wrapping
                 audio_set_fx(sound_step(audio_get_fx(),1,true));
-            } else if (sel == 15) {              // Drive lamps: on/off
+            } else if (sel == 16) {              // Drive lamps: on/off
                 lcd_lamps_enable(!lcd_lamps_enabled());
-            } else if (sel == 16) {              // Screen keyboard: off, landscape, landscape-game, portrait
+            } else if (sel == 17) {              // Screen keyboard: off, landscape, landscape-game, portrait
                 lcd_set_osk(osk_step(1));
                 lcd_menu_clear();
-            } else if (sel == 17) {              // Screenshot
+            } else if (sel == 18) {              // Screenshot
                 if (!screenshot_save(s_last_shot, sizeof(s_last_shot))) {
                     snprintf(s_last_shot, sizeof(s_last_shot), "FAILED");
                 }
-            } else if (sel == 18) {              // State Save: the slot screen; a load closes the menu
+            } else if (sel == 19) {              // State Save: the slot screen; a load closes the menu
                 if (state_menu()) break;
                 lcd_menu_clear();   // the submenu owned the screen
-            } else if (sel == 19 || sel == 20) {   // USB Mode: arm the flag, reboot
-                const int m = (sel == 19) ? USB_MODE_SD : USB_MODE_IMAGE;
+            } else if (sel == 20 || sel == 21) {   // USB Mode: arm the flag, reboot
+                const int m = (sel == 20) ? USB_MODE_SD : USB_MODE_IMAGE;
                 if (m == USB_MODE_IMAGE && choose_image_drive() < 0) {
                     lcd_menu_clear();   // back to the menu
                     draw_drives(sel);
@@ -1585,7 +1606,7 @@ extern "C" void menu_disk_run(void) {
                 sd_unmount();
                 panel_tab5_blank_early();
                 esp_restart();
-            } else if (sel == 21) {             // RESET: persist the settings, reboot
+            } else if (sel == 22) {             // RESET: persist the settings, reboot
                 save_settings();
                 sd_unmount();                   // same reason as USB Mode above
                 panel_tab5_blank_early();

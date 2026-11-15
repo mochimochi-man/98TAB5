@@ -23,7 +23,8 @@
  *   WDAT       each data unit is written DC + 1 times through MASK (a byte type limits it to one byte), the address
  *              moving one word (or line) along DIR each time
  * The figure parameters return to their idle values afterwards (gdc.c).  The DRAWING status bit stays on for the time
- * the GDC would take: a read-modify-write cycle of 4 GDC clocks (2.5 MHz) per dot. */
+ * the GDC would take: a read-modify-write cycle of 4 GDC clocks per dot, at the clock g_settings.gdc_clock chooses
+ * (5 MHz on the VM). */
 #include <compiler.h>
 #include <cpulink.h>
 #include <pc98.h>
@@ -57,13 +58,29 @@ void gdcfig_init(void)
 static void draw_done(UINT id, int timed)
 {
 	(void)id;
-	if (timed) g_ggdc.drawing = 0;
+	if (timed) {
+		g_ggdc.drawing = 0;
+		gdc_fifo_run();			/* what was written meanwhile */
+	}
 }
 
 static void busy(UINT dots)
 {
-	const SINT32 clk = (SINT32)(((UINT64)g_mach.cpu_clock * (dots * 4u + 20u)) / 2500000u);
-	SINT32 left = ev_armed(EV_GDCDRAW) ? ev_left(EV_GDCDRAW) : 0;
+	static const UINT32 hz[4] = { 2500000u, 5000000u, 10000000u, 20000000u };
+	const UINT64 gdc = dots * 4u + 20u;		/* GDC clocks */
+	SINT32 clk, left;
+
+	switch (g_settings.gdc_clock) {
+	case GDC_CLK_NOWAIT:
+		return;
+	case GDC_CLK_CPU:		/* 2.5 MHz x multiple / 4: so many clocks of the base clock */
+		clk = (SINT32)(((UINT64)g_mach.base_clock * gdc * 4u) / 2500000u);
+		break;
+	default:
+		clk = (SINT32)(((UINT64)g_mach.cpu_clock * gdc) / hz[g_settings.gdc_clock < 4 ? g_settings.gdc_clock : 0]);
+		break;
+	}
+	left = ev_armed(EV_GDCDRAW) ? ev_left(EV_GDCDRAW) : 0;
 
 	if (left < 0) left = 0;
 	g_ggdc.drawing = 1;
