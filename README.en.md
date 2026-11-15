@@ -113,7 +113,7 @@ For a new installation, write the merged image, which contains the bootloader,
 partition table, initial OTA data and application:
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.3.0-20261114.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.3.0-20261115.bin
 ```
 
 For an update with the same partition layout, write only the application to
@@ -121,7 +121,7 @@ preserve disk selection, CPU clock, backlight, volume and Bluetooth pairings
 stored in NVS:
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x10000 firmware/pc98tab5-app.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x10000 firmware/pc98tab5-app-1.3.0-20261115.bin
 ```
 
 The merged image can overwrite settings. See [`firmware/README.jp.md`](firmware/README.jp.md)

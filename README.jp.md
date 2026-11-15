@@ -110,7 +110,7 @@ M5Burner でも公開しています。
 アプリを含む結合イメージを書き込みます。
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.3.0-20261114.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 firmware/98TAB5-public-1.3.0-20261115.bin
 ```
 
 同じパーティション構成から更新する場合は、アプリ単体を書き込みます。
@@ -118,7 +118,7 @@ python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x0 fir
 Bluetoothのペアリング情報を維持できます。
 
 ```sh
-python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x10000 firmware/pc98tab5-app.bin
+python -m esptool --chip esp32p4 --port <PORT> --baud 460800 write_flash 0x10000 firmware/pc98tab5-app-1.3.0-20261115.bin
 ```
 
 結合イメージの書き込みでは設定が上書きされる場合があります。
